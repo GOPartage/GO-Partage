@@ -498,7 +498,7 @@
 
       .from("card_sets")
 
-      .select("id, name, sort_order")
+      .select("id, name, name_fr, sort_order")
 
       .eq("album_id", album.id)
 
@@ -578,7 +578,7 @@
 
       const heading = document.createElement("h3");
 
-      heading.textContent = set.sort_order + ". " + set.name;
+      heading.textContent = set.sort_order + ". " + (set.name_fr || set.name);
 
       section.appendChild(heading);
 
