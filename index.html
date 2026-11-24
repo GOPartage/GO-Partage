@@ -694,6 +694,7 @@
       ...(cards || []).map(item => ({...item, suggestionKind:"card"})),
       ...(ideas || []).map(item => ({...item, suggestionKind:"general"}))
     ].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+    await loadAdminDonationDisputes();
     if (!allItems.length) {
       suggestionsBox.textContent = "Aucune suggestion pour le moment.";
       return;
@@ -745,6 +746,80 @@
         }
       }
       suggestionsBox.appendChild(card);
+    });
+  }
+
+  async function loadAdminDonationDisputes() {
+    const box = document.getElementById("adminDonationDisputes");
+    if (!box) return;
+    box.textContent = "Chargement des litiges...";
+    const { data: disputes, error } = await supabase.from("transfers")
+      .select("id,donor_id,recipient_id,card_id,dispute_reason,created_at")
+      .eq("status","disputed").order("created_at",{ascending:false});
+    if (error) {
+      box.textContent = "Impossible de charger les litiges : " + error.message;
+      return;
+    }
+    box.replaceChildren();
+    if (!disputes || !disputes.length) {
+      box.textContent = "Aucun litige sur les dons pour le moment.";
+      return;
+    }
+    const memberIds = [...new Set(disputes.flatMap(t => [t.donor_id,t.recipient_id]))];
+    const cardIds = [...new Set(disputes.map(t => t.card_id))];
+    const [{data: members},{data: cards}] = await Promise.all([
+      supabase.from("profiles").select("id,display_name").in("id",memberIds),
+      supabase.from("cards").select("id,name,name_fr,card_number,set_id").in("id",cardIds)
+    ]);
+    const setIds = [...new Set((cards || []).map(c => c.set_id))];
+    const {data: sets} = setIds.length
+      ? await supabase.from("card_sets").select("id,name,name_fr").in("id",setIds)
+      : {data:[]};
+    const memberNames = new Map((members || []).map(m => [m.id,m.display_name || "Membre"]));
+    const cardMap = new Map((cards || []).map(c => [c.id,c]));
+    const setMap = new Map((sets || []).map(set => [set.id,set]));
+    disputes.forEach(dispute => {
+      const row = document.createElement("div");
+      row.className = "set";
+      const card = cardMap.get(dispute.card_id);
+      const set = card ? setMap.get(card.set_id) : null;
+      const heading = document.createElement("strong");
+      heading.textContent = card
+        ? (set ? (set.name_fr || set.name) + " · " : "") + "#" + card.card_number + " " + (card.name_fr || card.name)
+        : "Carte concernée";
+      const details = document.createElement("p");
+      details.textContent = "Donneur : " + (memberNames.get(dispute.donor_id) || "Membre") +
+        " · Destinataire : " + (memberNames.get(dispute.recipient_id) || "Membre");
+      const reason = document.createElement("p");
+      reason.className = "muted";
+      reason.textContent = "Problème signalé : " + (dispute.dispute_reason || "Aucun détail fourni.");
+      row.append(heading,details,reason);
+      for (const choice of [
+        {value:"confirmed",label:"Confirmer le don"},
+        {value:"cancelled",label:"Annuler et rendre la carte au donneur"}
+      ]) {
+        const action = document.createElement("button");
+        action.className = "small-button";
+        action.textContent = choice.label;
+        action.addEventListener("click", async () => {
+          const warning = choice.value === "confirmed"
+            ? "Confirmer que le don a bien été reçu et ajouter la carte au bénéficiaire ?"
+            : "Annuler le transfert et rendre la carte au donneur ?";
+          if (!confirm(warning)) return;
+          action.disabled = true;
+          const {error: resolveError} = await supabase.rpc("resolve_donation_dispute", {
+            p_transfer_id:dispute.id,p_resolution:choice.value
+          });
+          if (resolveError) {
+            action.disabled = false;
+            reason.textContent = "Impossible de traiter le litige : " + resolveError.message;
+            return;
+          }
+          await loadAdminPanel();
+        });
+        row.appendChild(action);
+      }
+      box.appendChild(row);
     });
   }
 
