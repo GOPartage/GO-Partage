@@ -8,13 +8,9 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <meta name="theme-color" content="#6554a4">
-
   <title>GO Partage</title>
 
   <style>
-
-    * { box-sizing: border-box; }
 
     body {
 
@@ -22,97 +18,107 @@
 
       font-family: Arial, sans-serif;
 
-      background: #f5f3fa;
+      background: #f7f2eb;
 
-      color: #29243a;
+      color: #3b312d;
+
+      text-align: center;
 
     }
 
     header {
 
-      background: #6554a4;
+      background: #c8a26a;
 
       color: white;
 
-      padding: 28px 20px;
-
-      text-align: center;
+      padding: 25px 15px;
 
     }
-
-    header h1 { margin: 0 0 8px; }
-
-    header p { margin: 0; }
 
     main {
 
       max-width: 650px;
 
-      margin: auto;
+      margin: 35px auto;
 
       padding: 20px;
 
     }
 
-    .welcome {
+    .panel {
 
       background: white;
 
-      padding: 22px;
+      padding: 25px;
 
       border-radius: 16px;
 
-      margin-bottom: 18px;
+      margin: 20px 0;
+
+      box-shadow: 0 3px 12px #00000010;
 
     }
 
-    .menu {
+    button {
+
+      background: #3b312d;
+
+      color: white;
+
+      border: 0;
+
+      border-radius: 8px;
+
+      padding: 13px 20px;
+
+      font-size: 16px;
+
+      cursor: pointer;
+
+      margin: 8px;
+
+    }
+
+    button:disabled {
+
+      opacity: .6;
+
+      cursor: wait;
+
+    }
+
+    #status {
+
+      white-space: pre-wrap;
+
+      overflow-wrap: anywhere;
+
+      margin-top: 15px;
+
+    }
+
+    .tiles {
 
       display: grid;
 
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(2, 1fr);
 
       gap: 12px;
 
     }
 
-    .item {
+    .tile {
 
-      background: white;
+      background: #efe6da;
 
-      border-radius: 14px;
+      padding: 20px 8px;
 
-      padding: 22px 12px;
-
-      text-align: center;
-
-      font-weight: bold;
-
-      box-shadow: 0 2px 8px #0000000d;
+      border-radius: 12px;
 
     }
 
-    .item span {
-
-      display: block;
-
-      font-size: 28px;
-
-      margin-bottom: 10px;
-
-    }
-
-    footer {
-
-      text-align: center;
-
-      padding: 25px;
-
-      color: #777;
-
-      font-size: 13px;
-
-    }
+    [hidden] { display: none !important; }
 
   </style>
 
@@ -120,44 +126,173 @@
 
 <body>
 
-  <header>
+<header>
 
-    <h1>🎁 GO Partage</h1>
+  <h1>🎁 GO Partage</h1>
 
-    <p>Ensemble, partageons nos cartes !</p>
+  <p>Ensemble, partageons nos cartes !</p>
 
-  </header>
+</header>
 
-  <main>
+<main>
 
-    <section class="welcome">
+  <h2>Bienvenue sur GO Partage</h2>
 
-      <h2>Bienvenue sur GO Partage !</h2>
+  <p>L'application pour s'entraider et partager ses cartes Monopoly GO.</p>
 
-      <p>L'application pour donner, rechercher et échanger tes cartes avec la communauté.</p>
+  <section class="panel" id="loginPanel">
 
-    </section>
+    <h3>Connexion à GO Partage</h3>
 
-    <section class="menu">
+    <p>Connecte-toi avec ton compte Facebook pour continuer.</p>
 
-      <div class="item"><span>📚</span>Mes albums</div>
+    <button id="facebookButton">Continuer avec Facebook</button>
 
-      <div class="item"><span>🃏</span>Mes cartes</div>
+    <p id="status" role="status"></p>
 
-      <div class="item"><span>🎁</span>Mes dons</div>
+  </section>
 
-      <div class="item"><span>🔄</span>Échanges</div>
+  <section class="panel" id="accountPanel" hidden>
 
-      <div class="item"><span>👤</span>Mon compte</div>
+    <h3>Bienvenue !</h3>
 
-      <div class="item"><span>💬</span>Suggestions</div>
+    <p id="userEmail"></p>
 
-    </section>
+    <button id="logoutButton">Se déconnecter</button>
 
-  </main>
+  </section>
 
-  <footer>GO Partage · Projet communautaire</footer>
+  <section class="panel" id="dashboard" hidden>
+
+    <h3>Mon espace GO Partage</h3>
+
+    <div class="tiles">
+
+      <div class="tile">📚<br>Mes albums</div>
+
+      <div class="tile">🃏<br>Mes cartes</div>
+
+      <div class="tile">🎁<br>Mes dons</div>
+
+      <div class="tile">🔄<br>Échanges</div>
+
+      <div class="tile">👤<br>Mon compte</div>
+
+      <div class="tile">💡<br>Suggestions</div>
+
+    </div>
+
+    <p>Les fonctionnalités seront activées progressivement.</p>
+
+  </section>
+
+</main>
+
+<script type="module">
+
+  import { createClient } from
+
+    "https://esm.sh/@supabase/supabase-js@2";
+
+  const SUPABASE_URL =
+
+    "https://emcmvflmdxiwzanxggmu.supabase.co";
+
+  const SUPABASE_KEY =
+
+    "sb_publishable_DewNBprHDwNNxDm24c4_sQ_nqaFhXT_";
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const loginPanel = document.getElementById("loginPanel");
+
+  const accountPanel = document.getElementById("accountPanel");
+
+  const dashboard = document.getElementById("dashboard");
+
+  const status = document.getElementById("status");
+
+  const facebookButton = document.getElementById("facebookButton");
+
+  function displaySession(session) {
+
+    if (session) {
+
+      loginPanel.hidden = true;
+
+      accountPanel.hidden = false;
+
+      dashboard.hidden = false;
+
+      document.getElementById("userEmail").textContent =
+
+        session.user.email || "Compte Facebook connecté";
+
+    } else {
+
+      loginPanel.hidden = false;
+
+      accountPanel.hidden = true;
+
+      dashboard.hidden = true;
+
+    }
+
+  }
+
+  facebookButton.addEventListener("click", async () => {
+
+    facebookButton.disabled = true;
+
+    status.textContent = "Connexion à Facebook...";
+
+    const { error } = await supabase.auth.signInWithOAuth({
+
+      provider: "facebook",
+
+      options: {
+
+        redirectTo: window.location.origin + window.location.pathname
+
+      }
+
+    });
+
+    if (error) {
+
+      status.textContent = "Erreur : " + error.message;
+
+      facebookButton.disabled = false;
+
+    }
+
+  });
+
+  document.getElementById("logoutButton").addEventListener("click", async () => {
+
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+
+      status.textContent = "Erreur : " + error.message;
+
+    }
+
+  });
+
+  supabase.auth.onAuthStateChange((_event, session) => {
+
+    displaySession(session);
+
+  });
+
+  const { data: { session } } = await supabase.auth.getSession();
+
+  displaySession(session);
+
+</script>
 
 </body>
 
 </html>
+
