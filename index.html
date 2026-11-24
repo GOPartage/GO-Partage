@@ -571,31 +571,27 @@
   // CONNEXION FACEBOOK
 
   facebookButton.addEventListener("click", async () => {
+    if (facebookButton.disabled) return;
 
     facebookButton.disabled = true;
-
     status.textContent = "Connexion à Facebook...";
 
-    const { error } = await supabase.auth.signInWithOAuth({
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "facebook",
+        options: {
+          redirectTo: window.location.origin + window.location.pathname
+        }
+      });
 
-      provider: "facebook",
-
-      options: {
-
-        redirectTo: window.location.origin + window.location.pathname
-
-      }
-
-    });
-
-    if (error) {
-
-      status.textContent = "Erreur : " + error.message;
-
+      if (error) throw error;
+    } catch (error) {
+      console.error("Erreur de connexion Facebook :", error);
+      status.textContent = "La connexion n'a pas pu démarrer : " +
+        (error?.message || "erreur inconnue") +
+        ". Vérifie ta connexion Internet puis réessaie.";
       facebookButton.disabled = false;
-
     }
-
   });
 
   // DÉCONNEXION
