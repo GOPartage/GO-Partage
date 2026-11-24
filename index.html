@@ -621,9 +621,8 @@
       empty.className = "muted";
       empty.textContent = "Tu n’as pas encore de don publié.";
       myDonationsContent.appendChild(empty);
-      return;
     }
-    offers.forEach(offer => {
+    if (offers.length) offers.forEach(offer => {
       const card = cardById.get(offer.card_id);
       if (!card) return;
       const set = setById.get(card.set_id);
@@ -799,6 +798,61 @@
       empty.className = "muted";
       empty.textContent = "Publie un don pour recevoir des demandes de cartes.";
       myDonationsContent.appendChild(empty);
+    }
+
+    // Réception des dons : le bénéficiaire confirme pour ajouter la carte à son album
+    const receivedTitle = document.createElement("h3");
+    receivedTitle.textContent = "🎉 Dons à confirmer";
+    myDonationsContent.appendChild(receivedTitle);
+    const { data: pendingTransfers, error: pendingError } = await supabase
+      .from("transfers").select("id, donor_id, card_id, created_at")
+      .eq("recipient_id", user.id).eq("status", "awaiting_recipient")
+      .order("created_at", { ascending: false });
+    if (pendingError) {
+      const msg = document.createElement("p");
+      msg.className = "muted";
+      msg.textContent = "Impossible de charger les dons à confirmer : " + pendingError.message;
+      myDonationsContent.appendChild(msg);
+    } else if (!pendingTransfers || !pendingTransfers.length) {
+      const empty = document.createElement("p");
+      empty.className = "muted";
+      empty.textContent = "Aucun don en attente de confirmation.";
+      myDonationsContent.appendChild(empty);
+    } else {
+      const donorIds = [...new Set(pendingTransfers.map(t => t.donor_id))];
+      const { data: donorRows } = await supabase
+        .from("profiles").select("id, display_name").in("id", donorIds);
+      const names = new Map((donorRows || []).map(p => [p.id, p.display_name || "Membre GO Partage"]));
+      pendingTransfers.forEach(transfer => {
+        const card = cardById.get(transfer.card_id);
+        if (!card) return;
+        const set = setById.get(card.set_id);
+        const item = document.createElement("div");
+        item.className = "set";
+        const name = document.createElement("strong");
+        name.textContent = (set ? (set.name_fr || set.name) + " · " : "") + "#" + card.card_number + " " + (card.name_fr || card.name);
+        const detail = document.createElement("p");
+        detail.textContent = "Don envoyé par " + (names.get(transfer.donor_id) || "Membre GO Partage") + ". Confirme uniquement lorsque tu as bien reçu la carte dans le jeu.";
+        const confirm = document.createElement("button");
+        confirm.textContent = "J’ai reçu la carte";
+        const info = document.createElement("p");
+        info.className = "muted";
+        confirm.addEventListener("click", async () => {
+          confirm.disabled = true;
+          confirm.textContent = "Confirmation...";
+          const { error } = await supabase.rpc("confirm_received_transfer", { p_transfer_id: transfer.id });
+          if (error) {
+            confirm.disabled = false;
+            confirm.textContent = "J’ai reçu la carte";
+            info.textContent = "Confirmation impossible : " + error.message;
+            return;
+          }
+          info.textContent = "Réception confirmée ! La carte a été ajoutée à Mes cartes.";
+          confirm.textContent = "Réception confirmée";
+        });
+        item.append(name, detail, confirm, info);
+        myDonationsContent.appendChild(item);
+      });
     }
   }
 
