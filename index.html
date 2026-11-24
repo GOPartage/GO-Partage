@@ -2235,6 +2235,41 @@
 
 </script>
 
+
+<!-- GO_PARTAGE_LOGIN_FALLBACK: bouton autonome si le module principal rencontre une erreur -->
+<script>
+(function () {
+  const button = document.getElementById("facebookButton");
+  const status = document.getElementById("status");
+  if (!button || !status) return;
+  button.addEventListener("click", async function (event) {
+    event.preventDefault();
+    if (button.dataset.loginBusy === "1") return;
+    button.dataset.loginBusy = "1";
+    button.disabled = true;
+    status.textContent = "Connexion à Facebook...";
+    try {
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+      const client = createClient(
+        "https://emcmvflmdxiwzanxggmu.supabase.co",
+        "sb_publishable_DewNBprHDwNNxDm24c4_sQ_nqaFhXT_",
+        { auth: { flowType: "pkce", persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storage: window.localStorage } }
+      );
+      const { error } = await client.auth.signInWithOAuth({
+        provider: "facebook",
+        options: { redirectTo: window.location.origin + window.location.pathname }
+      });
+      if (error) throw error;
+    } catch (error) {
+      console.error("Connexion Facebook GO Partage :", error);
+      status.textContent = "Erreur de connexion : " + (error && error.message ? error.message : "réessaie dans un instant.");
+      button.disabled = false;
+      button.dataset.loginBusy = "0";
+    }
+  });
+})();
+</script>
+
 </body>
 
 </html>
