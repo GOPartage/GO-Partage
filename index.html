@@ -238,6 +238,14 @@
 
     }
 
+    .quantity-controls { display:flex; align-items:center; justify-content:center; gap:8px; margin-top:9px; }
+    .quantity-controls button { margin:0; padding:5px 10px; font-size:16px; }
+    .quantity-value { min-width:22px; font-weight:bold; }
+    .owned-card { border-color:#c8a26a; background:#fffaf2; }
+    .cards-summary { background:#efe6da; border-radius:10px; padding:12px; margin:12px 0; }
+    .filter-buttons { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; }
+    .filter-buttons button { margin:0; padding:8px 12px; font-size:13px; }
+
     [hidden] {
 
       display: none !important;
@@ -304,7 +312,7 @@
 
       <button class="tile" id="albumsButton">📚<br>Mes albums</button>
 
-      <button class="tile" disabled>🃏<br>Mes cartes</button>
+      <button class="tile" id="myCardsButton">🃏<br>Mes cartes</button>
 
       <button class="tile" disabled>🎁<br>Mes dons</button>
 
@@ -334,6 +342,13 @@
 
   </section>
 
+  <section class="panel" id="myCardsPanel" hidden>
+    <button class="small-button" id="backFromCardsButton">← Retour</button>
+    <h2>🃏 Mes cartes</h2>
+    <p class="muted">Indique combien d’exemplaires tu possèdes. 0 = carte manquante.</p>
+    <div id="myCardsContent">Chargement de tes cartes...</div>
+  </section>
+
 </main>
 
 <script type="module">
@@ -359,6 +374,8 @@
   const dashboard = document.getElementById("dashboard");
 
   const albumsPanel = document.getElementById("albumsPanel");
+  const myCardsPanel = document.getElementById("myCardsPanel");
+  const myCardsContent = document.getElementById("myCardsContent");
 
   const status = document.getElementById("status");
 
@@ -389,6 +406,7 @@
       dashboard.hidden = true;
 
       albumsPanel.hidden = true;
+      myCardsPanel.hidden = true;
 
     }
 
@@ -448,6 +466,17 @@
 
     await loadAlbums();
 
+  });
+
+  document.getElementById("myCardsButton").addEventListener("click", async () => {
+    dashboard.hidden = true;
+    myCardsPanel.hidden = false;
+    await loadMyCards();
+  });
+
+  document.getElementById("backFromCardsButton").addEventListener("click", () => {
+    myCardsPanel.hidden = true;
+    dashboard.hidden = false;
   });
 
   // RETOUR À L'ACCUEIL
@@ -644,6 +673,99 @@
 
     });
 
+  }
+
+  // MES CARTES : inventaire personnel et quantités de doublons
+  async function loadMyCards() {
+    myCardsContent.textContent = "Chargement de tes cartes...";
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      myCardsContent.textContent = "Reconnecte-toi pour afficher tes cartes.";
+      return;
+    }
+
+    const { data: albums, error: albumError } = await supabase
+      .from("albums").select("id, name, is_active").eq("is_active", true);
+    if (albumError) { myCardsContent.textContent = "Erreur albums : " + albumError.message; return; }
+    const album = albums.find(a => a.name === "Monster Mash");
+    if (!album) { myCardsContent.textContent = "Aucun album actif trouvé."; return; }
+
+    const { data: sets, error: setsError } = await supabase
+      .from("card_sets").select("id, name, name_fr, sort_order")
+      .eq("album_id", album.id).order("sort_order", { ascending: true });
+    if (setsError) { myCardsContent.textContent = "Erreur collections : " + setsError.message; return; }
+    const setIds = sets.map(set => set.id);
+    const { data: cards, error: cardsError } = await supabase
+      .from("cards").select("id, set_id, card_number, name, name_fr, rarity, is_gold")
+      .in("set_id", setIds).eq("is_approved", true).order("card_number", { ascending: true });
+    if (cardsError) { myCardsContent.textContent = "Erreur cartes : " + cardsError.message; return; }
+
+    const { data: ownedRows, error: ownedError } = await supabase
+      .from("member_cards").select("card_id, quantity").eq("member_id", user.id);
+    if (ownedError) { myCardsContent.textContent = "Erreur de chargement de ton inventaire : " + ownedError.message; return; }
+    const quantities = new Map(ownedRows.map(row => [row.card_id, row.quantity]));
+    let filter = "all";
+
+    function render() {
+      myCardsContent.replaceChildren();
+      const ownedCount = cards.filter(card => (quantities.get(card.id) || 0) > 0).length;
+      const duplicateCount = cards.reduce((sum, card) => sum + Math.max(0, (quantities.get(card.id) || 0) - 1), 0);
+      const summary = document.createElement("div");
+      summary.className = "cards-summary";
+      summary.textContent = ownedCount + " / " + cards.length + " cartes possédées • " + (cards.length - ownedCount) + " manquantes • " + duplicateCount + " doublons";
+      myCardsContent.appendChild(summary);
+
+      const filters = document.createElement("div");
+      filters.className = "filter-buttons";
+      [["all","Toutes"],["missing","Manquantes"],["duplicates","Avec doublons"]].forEach(([value,label]) => {
+        const b = document.createElement("button");
+        b.className = "small-button"; b.textContent = label;
+        b.style.background = filter === value ? "#c8a26a" : "#3b312d";
+        b.addEventListener("click", () => { filter = value; render(); });
+        filters.appendChild(b);
+      });
+      myCardsContent.appendChild(filters);
+
+      sets.forEach(set => {
+        const setCards = cards.filter(card => card.set_id === set.id).filter(card => {
+          const q = quantities.get(card.id) || 0;
+          return filter === "all" || (filter === "missing" && q === 0) || (filter === "duplicates" && q > 1);
+        });
+        if (!setCards.length) return;
+        const section = document.createElement("div"); section.className = "set";
+        const heading = document.createElement("h3"); heading.textContent = set.sort_order + ". " + (set.name_fr || set.name);
+        section.appendChild(heading);
+        const container = document.createElement("div"); container.className = "cards";
+        setCards.forEach(card => {
+          const q = quantities.get(card.id) || 0;
+          const item = document.createElement("div"); item.className = "card-item" + (q > 0 ? " owned-card" : "");
+          const number = document.createElement("span"); number.className = "card-number"; number.textContent = "#" + card.card_number; item.appendChild(number);
+          const name = document.createElement("span"); name.textContent = card.name_fr || card.name; item.appendChild(name);
+          if (card.is_gold) { const gold = document.createElement("span"); gold.className = "gold"; gold.textContent = "⭐ Dorée"; item.appendChild(gold); }
+          const controls = document.createElement("div"); controls.className = "quantity-controls";
+          const minus = document.createElement("button"); minus.textContent = "−"; minus.className = "small-button"; minus.disabled = q === 0;
+          const value = document.createElement("span"); value.className = "quantity-value"; value.textContent = String(q);
+          const plus = document.createElement("button"); plus.textContent = "+"; plus.className = "small-button";
+          async function changeQuantity(next) {
+            minus.disabled = true; plus.disabled = true;
+            const { error } = await supabase.from("member_cards").upsert(
+              { member_id: user.id, card_id: card.id, quantity: next, updated_at: new Date().toISOString() },
+              { onConflict: "member_id,card_id" }
+            );
+            if (error) { alert("Impossible d’enregistrer : " + error.message); minus.disabled = false; plus.disabled = false; return; }
+            quantities.set(card.id, next); render();
+          }
+          minus.addEventListener("click", () => changeQuantity(Math.max(0, q - 1)));
+          plus.addEventListener("click", () => changeQuantity(q + 1));
+          controls.append(minus, value, plus); item.appendChild(controls); container.appendChild(item);
+        });
+        section.appendChild(container); myCardsContent.appendChild(section);
+      });
+      if (filter !== "all" && !myCardsContent.querySelector(".set")) {
+        const empty = document.createElement("p"); empty.className = "muted"; empty.textContent = "Aucune carte dans cette catégorie."; myCardsContent.appendChild(empty);
+      }
+    }
+    render();
   }
 
   // GESTION DE LA SESSION
