@@ -43,9 +43,10 @@
       padding:22px 24px 20px;
       border:1px solid rgba(255,245,205,.82);
       border-radius:22px;
-      background:linear-gradient(115deg, #ffd84d 0%, #8fd8f4 52%, #f4a8cc 100%);
-      box-shadow:0 18px 42px rgba(8,24,44,.42), inset 0 1px 0 rgba(255,255,255,.28), inset 0 -8px 20px rgba(4,20,42,.25);
-      backdrop-filter:blur(8px);
+      background:rgba(255,255,255,.16);
+      box-shadow:0 14px 36px rgba(8,24,44,.24), inset 0 1px 0 rgba(255,255,255,.42);
+      backdrop-filter:blur(12px);
+      -webkit-backdrop-filter:blur(12px);
       color:#3b312d;
     }
 
@@ -114,11 +115,11 @@
 
     button {
 
-      background: linear-gradient(135deg, #fff0a3 0%, #f4c342 25%, #d99a1f 55%, #ffe28a 78%, #b97913 100%);
+      background: linear-gradient(115deg, #ffd84d 0%, #8fd8f4 52%, #f4a8cc 100%);
 
-      color: #49300d;
-      border:1px solid #fff0ad;
-      box-shadow:0 5px 0 #936018, 0 8px 18px rgba(74,47,8,.24), inset 0 2px 3px rgba(255,255,255,.85);
+      color: #3b312d;
+      border:1px solid rgba(255,255,255,.85);
+      box-shadow:0 5px 0 rgba(83,100,125,.55), 0 8px 18px rgba(29,48,70,.22), inset 0 2px 3px rgba(255,255,255,.72);
 
       border: 0;
 
@@ -153,14 +154,12 @@
     }
 
     .tiles {
-
-      display: grid;
-
-      grid-template-columns: repeat(2, 1fr);
-
-      gap: 12px;
-
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
     }
+    .tile-wide { grid-column:1 / -1; padding:22px 12px; font-size:18px; }
+    #facebookButton, #logoutButton { background:linear-gradient(135deg,#fff0a3 0%,#f4c342 25%,#d99a1f 55%,#ffe28a 78%,#b97913 100%); color:#49300d; border:1px solid #fff0ad; box-shadow:0 5px 0 #936018,0 8px 18px rgba(74,47,8,.24),inset 0 2px 3px rgba(255,255,255,.85); }
 
     .tile {
 
@@ -381,7 +380,7 @@
       <button class="tile" id="myCardsButton">🃏<br>Mes cartes</button>
 
       <button class="tile" id="myDonationsButton">🤝<br>Mes dons</button>
-
+      <button class="tile tile-wide" id="donationBankButton">🏦<br>Banque des dons</button>
       <button class="tile" id="myAccountButton">👤<br>Mon compte</button>
 
       <button class="tile" id="suggestionsButton">💡<br>Suggestions</button>
@@ -406,6 +405,13 @@
     <h2>🤝 Mes dons</h2>
     <p class="muted">Propose gratuitement tes cartes en double à la communauté.</p>
     <div id="myDonationsContent">Chargement de tes dons...</div>
+  </section>
+
+  <section class="panel" id="donationBankPanel" hidden>
+    <button class="small-button" id="backFromDonationBankButton">← Retour</button>
+    <h2>🏦 Banque des dons</h2>
+    <p class="muted">Retrouve les cartes qui te manquent et demande-les gratuitement.</p>
+    <div id="bankDonationsContent">Chargement de la Banque des dons...</div>
   </section>
 
   <section class="panel" id="myAccountPanel" hidden>
@@ -480,7 +486,15 @@
 
     "sb_publishable_DewNBprHDwNNxDm24c4_sQ_nqaFhXT_";
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storage: window.localStorage,
+      storageKey: "go-partage-auth"
+    }
+  });
 
   const loginPanel = document.getElementById("loginPanel");
 
@@ -491,6 +505,8 @@
   const myCardsContent = document.getElementById("myCardsContent");
   const myDonationsPanel = document.getElementById("myDonationsPanel");
   const myDonationsContent = document.getElementById("myDonationsContent");
+  const bankDonationsPanel = document.getElementById("donationBankPanel");
+  const bankDonationsContent = document.getElementById("bankDonationsContent");
   const myAccountPanel = document.getElementById("myAccountPanel");
   const suggestionsPanel = document.getElementById("suggestionsPanel");
   const adminPanel = document.getElementById("adminPanel");
@@ -524,6 +540,7 @@
       dashboard.hidden = true;
       myCardsPanel.hidden = true;
       myDonationsPanel.hidden = true;
+      bankDonationsPanel.hidden = true;
       myAccountPanel.hidden = true;
       suggestionsPanel.hidden = true;
       adminPanel.hidden = true;
@@ -600,6 +617,15 @@
 
   document.getElementById("backFromDonationsButton").addEventListener("click", () => {
     myDonationsPanel.hidden = true;
+    dashboard.hidden = false;
+  });
+  document.getElementById("donationBankButton").addEventListener("click", async () => {
+    dashboard.hidden = true;
+    bankDonationsPanel.hidden = false;
+    await loadMyDonations();
+  });
+  document.getElementById("backFromDonationBankButton").addEventListener("click", () => {
+    bankDonationsPanel.hidden = true;
     dashboard.hidden = false;
   });
 
@@ -956,6 +982,7 @@
   // MES DONS : publier et consulter ses propositions de dons
   async function loadMyDonations() {
     myDonationsContent.textContent = "Chargement de tes dons...";
+    bankDonationsContent.textContent = "Chargement de la Banque des dons...";
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) { myDonationsContent.textContent = "Reconnecte-toi pour gérer tes dons."; return; }
 
@@ -1001,6 +1028,7 @@
     }
     await ensureDonationCardDetails(offers.map(offer => offer.card_id));
     myDonationsContent.replaceChildren();
+    bankDonationsContent.replaceChildren();
 
     const form = document.createElement("div");
     form.className = "set";
@@ -1126,12 +1154,12 @@
     if (communityBankReady) {
       const bankTitle = document.createElement("h3");
       bankTitle.textContent = "🏦 Banque des dons";
-      myDonationsContent.appendChild(bankTitle);
+      bankDonationsContent.appendChild(bankTitle);
 
       const bankIntro = document.createElement("p");
       bankIntro.className = "muted";
       bankIntro.textContent = "Les dons affichés sont uniquement les cartes qui te manquent dans ta collection.";
-      myDonationsContent.appendChild(bankIntro);
+      bankDonationsContent.appendChild(bankIntro);
 
       // Repère les sets dans lesquels le membre ne possède absolument aucune carte.
       const emptySets = sets.filter(set => {
@@ -1163,7 +1191,7 @@
           const warning = document.createElement("p");
           warning.className = "muted";
           warning.textContent = "La vérification de ton attestation est indisponible. La Banque des dons reste fermée pour le moment.";
-          myDonationsContent.appendChild(warning);
+          bankDonationsContent.appendChild(warning);
         } else if (!attestationValid) {
           const attestationPanel = document.createElement("div");
           attestationPanel.className = "set";
@@ -1219,13 +1247,13 @@
             await loadMyDonations();
           });
           attestationPanel.append(attestationTitle, attestationText, setList, legalText, consentLabel, confirm, feedback);
-          myDonationsContent.appendChild(attestationPanel);
+          bankDonationsContent.appendChild(attestationPanel);
         }
       } else {
         const noAttestation = document.createElement("p");
         noAttestation.className = "muted";
         noAttestation.textContent = "Ta collection contient au moins une carte dans chaque set : aucune attestation supplémentaire n’est nécessaire.";
-        myDonationsContent.appendChild(noAttestation);
+        bankDonationsContent.appendChild(noAttestation);
       }
 
       if (attestationValid && !attestationError) {
@@ -1235,13 +1263,13 @@
           const msg = document.createElement("p");
           msg.className = "muted";
           msg.textContent = "Impossible de vérifier ton accès aux demandes : " + eligibilityError.message;
-          myDonationsContent.appendChild(msg);
+          bankDonationsContent.appendChild(msg);
         } else if (eligibility) {
           const quota = document.createElement("p");
           quota.className = "muted";
           quota.textContent = "Dons confirmés : " + eligibility.donations_confirmed + " · Réceptions confirmées : " + eligibility.receptions_confirmed +
             " · Dons nécessaires avant une nouvelle demande : " + eligibility.donations_required;
-          myDonationsContent.appendChild(quota);
+          bankDonationsContent.appendChild(quota);
         }
 
         const { data: myActiveRequests, error: myActiveRequestsError } = await supabase
@@ -1250,17 +1278,17 @@
         await ensureDonationCardDetails((myActiveRequests || []).map(request => request.card_id));
         const myRequestsTitle = document.createElement("h3");
         myRequestsTitle.textContent = "📨 Mes demandes envoyées";
-        myDonationsContent.appendChild(myRequestsTitle);
+        bankDonationsContent.appendChild(myRequestsTitle);
         if (myActiveRequestsError) {
           const requestError = document.createElement("p");
           requestError.className = "muted";
           requestError.textContent = "Impossible de charger tes demandes : " + myActiveRequestsError.message;
-          myDonationsContent.appendChild(requestError);
+          bankDonationsContent.appendChild(requestError);
         } else if (!myActiveRequests || !myActiveRequests.length) {
           const noRequests = document.createElement("p");
           noRequests.className = "muted";
           noRequests.textContent = "Tu n’as aucune demande en attente.";
-          myDonationsContent.appendChild(noRequests);
+          bankDonationsContent.appendChild(noRequests);
         } else {
           myActiveRequests.forEach(request => {
             const card = cardById.get(request.card_id);
@@ -1284,7 +1312,7 @@
               await loadMyDonations();
             });
             requestItem.append(requestName, cancelRequest);
-            myDonationsContent.appendChild(requestItem);
+            bankDonationsContent.appendChild(requestItem);
           });
         }
 
@@ -1295,7 +1323,7 @@
           const msg = document.createElement("p");
           msg.className = "muted";
           msg.textContent = "Impossible de charger les dons de la communauté : " + communityError.message;
-          myDonationsContent.appendChild(msg);
+          bankDonationsContent.appendChild(msg);
         } else {
           const missingOnlyOffers = (communityOffers || []).filter(offer =>
             activeCardIds.has(offer.card_id) && (quantities.get(offer.card_id) || 0) === 0
@@ -1304,7 +1332,7 @@
             const empty = document.createElement("p");
             empty.className = "muted";
             empty.textContent = "Aucun don disponible pour les cartes qui te manquent actuellement.";
-            myDonationsContent.appendChild(empty);
+            bankDonationsContent.appendChild(empty);
           } else {
             const donorIds = [...new Set(missingOnlyOffers.map(o => o.member_id))];
             const { data: donorProfiles, error: donorProfilesError } = await supabase
@@ -1317,7 +1345,7 @@
               const msg = document.createElement("p");
               msg.className = "muted";
               msg.textContent = "Les informations des dons n'ont pas pu être entièrement chargées.";
-              myDonationsContent.appendChild(msg);
+              bankDonationsContent.appendChild(msg);
             }
             missingOnlyOffers.forEach(offer => {
               const card = cardById.get(offer.card_id);
@@ -1359,7 +1387,7 @@
                 requestedCards.add(card.id);
               });
               item.append(name, detail, ask, askInfo);
-              myDonationsContent.appendChild(item);
+              bankDonationsContent.appendChild(item);
             });
           }
         }
@@ -1368,7 +1396,7 @@
       const hidden = document.createElement("p");
       hidden.className = "muted";
       hidden.textContent = "La Banque des dons restera fermée jusqu’à l’activation du nouvel album et l’ajout de ses 23 sets complets : 9 cartes approuvées par set, soit 207 cartes au total.";
-      myDonationsContent.appendChild(hidden);
+      bankDonationsContent.appendChild(hidden);
     }
 
     // Demandes reçues sur les cartes que je propose : le donneur choisit le bénéficiaire
