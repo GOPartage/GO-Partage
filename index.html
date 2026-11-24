@@ -509,7 +509,7 @@
       flowType: "pkce",
       persistSession: true,
       autoRefreshToken: true,
-      detectSessionInUrl: true,
+      detectSessionInUrl: false,
       storage: window.localStorage
     }
   });
@@ -2234,6 +2234,67 @@
 
 
 
+
+
+<!-- Traitement explicite du retour OAuth avant le démarrage du module principal -->
+<script>
+(function () {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("code");
+  const oauthError = params.get("error_description") || params.get("error");
+  if (!code && !oauthError) return;
+
+  const status = document.getElementById("status");
+  const button = document.getElementById("facebookButton");
+  if (status) status.textContent = code
+    ? "Finalisation de ta connexion Facebook..."
+    : "La connexion Facebook a été refusée : " + oauthError;
+
+  if (button) button.disabled = true;
+  window.goPartageOAuthCallbackRecovery = true;
+
+  (async function () {
+    try {
+      if (oauthError) throw new Error(oauthError);
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+      const client = createClient(
+        "https://emcmvflmdxiwzanxggmu.supabase.co",
+        "sb_publishable_DewNBprHDwNNxDm24c4_sQ_nqaFhXT_",
+        {
+          auth: {
+            flowType: "pkce",
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: false,
+            storage: window.localStorage
+          }
+        }
+      );
+      const { data, error } = await client.auth.exchangeCodeForSession(code);
+      if (error) throw error;
+      if (!data || !data.session) {
+        throw new Error("Facebook a répondu, mais aucune session utilisateur n'a été enregistrée.");
+      }
+
+      params.delete("code");
+      params.delete("state");
+      params.delete("error");
+      params.delete("error_description");
+      const cleanUrl = window.location.pathname +
+        (params.toString() ? "?" + params.toString() : "") + window.location.hash;
+      window.history.replaceState({}, document.title, cleanUrl);
+      window.location.reload();
+    } catch (error) {
+      console.error("Récupération du retour OAuth GO Partage :", error);
+      if (status) status.textContent =
+        "La connexion Facebook n'a pas pu être finalisée : " +
+        (error && error.message ? error.message : "erreur inconnue") +
+        ". Tu peux réessayer.";
+      if (button) button.disabled = false;
+    }
+  })();
+})();
+</script>
 
 </body>
 
