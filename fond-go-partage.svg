@@ -1,81 +1,116 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000">
 <defs>
- <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#20b9e9"/><stop offset=".48" stop-color="#75d7f2"/><stop offset="1" stop-color="#ffe58a"/></linearGradient>
- <linearGradient id="wall" x2="0" y2="1"><stop stop-color="#fff18a"/><stop offset=".48" stop-color="#ffbf45"/><stop offset="1" stop-color="#ed7834"/></linearGradient>
- <linearGradient id="roof" x2="0" y2="1"><stop stop-color="#ff6d58"/><stop offset=".52" stop-color="#ed304f"/><stop offset="1" stop-color="#a91d55"/></linearGradient>
- <linearGradient id="blue" x2="0" y2="1"><stop stop-color="#45d9ef"/><stop offset=".5" stop-color="#168dc8"/><stop offset="1" stop-color="#164b9a"/></linearGradient>
- <linearGradient id="purple" x2="0" y2="1"><stop stop-color="#d58aff"/><stop offset=".55" stop-color="#9252d5"/><stop offset="1" stop-color="#58349d"/></linearGradient>
- <linearGradient id="gold" x2="0" y2="1"><stop stop-color="#fff5a8"/><stop offset=".45" stop-color="#ffca36"/><stop offset="1" stop-color="#d97716"/></linearGradient>
- <linearGradient id="green" x2="0" y2="1"><stop stop-color="#a8f06d"/><stop offset=".55" stop-color="#35b968"/><stop offset="1" stop-color="#167b65"/></linearGradient>
- <radialGradient id="glow"><stop stop-color="#fff" stop-opacity=".5"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
- <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%"><feGaussianBlur in="SourceAlpha" stdDeviation="15"/><feOffset dy="20"/><feComponentTransfer><feFuncA type="linear" slope=".38"/></feComponentTransfer><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
- <filter id="soft"><feGaussianBlur stdDeviation="5"/></filter>
- <pattern id="sparkle" width="95" height="95" patternUnits="userSpaceOnUse"><path d="M48 8l5 30 30 10-30 5-5 30-5-30-30-5 30-10z" fill="#fff" opacity=".25"/></pattern>
+ <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#79d9ff"/><stop offset=".48" stop-color="#b8eaff"/><stop offset="1" stop-color="#f7c7f2"/></linearGradient>
+ <linearGradient id="cloud" x2="0" y2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#d8eaff"/></linearGradient>
+ <linearGradient id="gold" x2="0" y2="1"><stop stop-color="#fff9bd"/><stop offset=".25" stop-color="#ffe46a"/><stop offset=".62" stop-color="#f5ad28"/><stop offset="1" stop-color="#b96a13"/></linearGradient>
+ <linearGradient id="goldSide" x2="1" y2="0"><stop stop-color="#a85b12"/><stop offset=".45" stop-color="#e69a1c"/><stop offset="1" stop-color="#fff0a0"/></linearGradient>
+ <linearGradient id="ivory" x2="0" y2="1"><stop stop-color="#fffef0"/><stop offset=".45" stop-color="#f4e5c4"/><stop offset="1" stop-color="#cda875"/></linearGradient>
+ <linearGradient id="redDome" x2="0" y2="1"><stop stop-color="#ff9a88"/><stop offset=".35" stop-color="#f04459"/><stop offset="1" stop-color="#9d245e"/></linearGradient>
+ <linearGradient id="tealGlass" x2="0" y2="1"><stop stop-color="#b8ffff"/><stop offset=".25" stop-color="#35d5df"/><stop offset=".7" stop-color="#087ba9"/><stop offset="1" stop-color="#123d83"/></linearGradient>
+ <linearGradient id="blueGem" x2="0" y2="1"><stop stop-color="#e4ffff"/><stop offset=".35" stop-color="#42e8ff"/><stop offset="1" stop-color="#2363db"/></linearGradient>
+ <linearGradient id="violet" x2="0" y2="1"><stop stop-color="#e6a4ff"/><stop offset=".55" stop-color="#9856e5"/><stop offset="1" stop-color="#4e299a"/></linearGradient>
+ <radialGradient id="sunGlow"><stop stop-color="#fff" stop-opacity=".9"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+ <filter id="deepShadow" x="-40%" y="-40%" width="180%" height="200%"><feGaussianBlur in="SourceAlpha" stdDeviation="17"/><feOffset dx="2" dy="22"/><feComponentTransfer><feFuncA type="linear" slope=".45"/></feComponentTransfer><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+ <filter id="softShadow" x="-30%" y="-30%" width="160%" height="170%"><feGaussianBlur in="SourceAlpha" stdDeviation="7"/><feOffset dy="9"/><feComponentTransfer><feFuncA type="linear" slope=".28"/></feComponentTransfer><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+ <pattern id="glints" width="140" height="130" patternUnits="userSpaceOnUse"><path d="M70 8l7 44 43 8-43 8-7 44-8-44-43-8 43-8z" fill="#fff" opacity=".32"/></pattern>
 </defs>
 <rect width="1600" height="1000" fill="url(#sky)"/>
-<circle cx="220" cy="170" r="260" fill="url(#glow)"/>
-<circle cx="1370" cy="185" r="300" fill="url(#glow)"/>
-<g fill="#fff" opacity=".65"><ellipse cx="250" cy="230" rx="125" ry="28"/><ellipse cx="330" cy="220" rx="80" ry="36"/><ellipse cx="1280" cy="265" rx="150" ry="30"/><ellipse cx="1370" cy="250" rx="90" ry="38"/></g>
-<!-- bâtiment monumental en perspective, avec volumes et ombres -->
-<g filter="url(#shadow)">
- <!-- base profonde -->
- <path d="M205 720L800 825l595-105-595-95z" fill="#6a328e" stroke="#f9cf50" stroke-width="12"/>
- <path d="M205 720L800 825v38L205 760z" fill="#4c247c"/>
- <path d="M800 825l595-105v40L800 863z" fill="#341f72"/>
- <!-- ailes latérales -->
- <path d="M265 390L800 285l535 105v300L800 790 265 690z" fill="url(#wall)" stroke="#a94c30" stroke-width="12"/>
- <path d="M265 390L800 495v295L265 690z" fill="#f4a43c" opacity=".65"/>
- <path d="M800 495l535-105v300L800 790z" fill="#df7137" opacity=".55"/>
- <!-- fronton en relief -->
- <path d="M190 390L800 125l610 265-610 125z" fill="url(#roof)" stroke="#ffdc59" stroke-width="15" stroke-linejoin="round"/>
- <path d="M260 385L800 165l540 220-540 110z" fill="#ff8b42" opacity=".45"/>
- <path d="M800 125v370" stroke="#a51f55" stroke-width="12" opacity=".55"/>
- <path d="M235 390L800 150l565 240" fill="none" stroke="#fff2a0" stroke-width="10" opacity=".9"/>
- <!-- dôme / couronne -->
- <path d="M575 260Q800 25 1025 260L1025 310 575 310z" fill="url(#gold)" stroke="#a95a28" stroke-width="10"/>
- <path d="M620 252Q800 70 980 252" fill="none" stroke="#fff7b7" stroke-width="13"/>
- <path d="M800 70v-35" stroke="#9d3c67" stroke-width="12"/><circle cx="800" cy="28" r="20" fill="#ffec75" stroke="#9d3c67" stroke-width="8"/>
- <!-- bandeaux et moulures -->
- <path d="M245 390L800 505l555-115v48L800 555 245 438z" fill="url(#gold)" stroke="#a85c28" stroke-width="8"/>
- <path d="M245 685L800 790l555-105v38L800 830 245 725z" fill="url(#gold)" stroke="#a85c28" stroke-width="8"/>
- <!-- colonnes épaisses, faces en surbrillance -->
- <g stroke="#9b542a" stroke-width="9">
-  <path d="M365 440l72 15v225l-72-14z" fill="url(#blue)"/><path d="M437 455l20 5v225l-20-5z" fill="#77edee"/>
-  <path d="M570 480l75 15v245l-75-15z" fill="url(#purple)"/><path d="M645 495l20 4v245l-20-4z" fill="#e2a2ff"/>
-  <path d="M955 495l75-15v245l-75 15z" fill="url(#green)"/><path d="M955 495l-20 4v245l20-4z" fill="#d7ff94"/>
-  <path d="M1165 455l72-15v225l-72 14z" fill="url(#blue)"/><path d="M1165 455l-20 5v225l20-5z" fill="#85f3f1"/>
- </g>
- <!-- fenêtres en arche -->
- <g stroke="#ffe68a" stroke-width="10">
-  <path d="M480 475q45-75 90 0v180l-90-18z" fill="#183d86"/>
-  <path d="M700 520q50-90 100 0v205l-100-20z" fill="#173b7c"/>
-  <path d="M900 520q50-90 100 0v185l-100 20z" fill="#173b7c"/>
-  <path d="M1080 475q45-75 90 0v162l-90 18z" fill="#183d86"/>
- </g>
- <g fill="none" stroke="#74e9f0" stroke-width="8" opacity=".9"><path d="M525 500v150M750 535v174M950 535v174M1125 500v150"/></g>
- <!-- porte centrale en arche -->
- <path d="M735 650q0-105 65-105t65 105v125l-130-25z" fill="#8d3fba" stroke="#ffdf62" stroke-width="12"/>
- <path d="M760 660q0-72 40-72t40 72v102l-80-15z" fill="#143b7c" stroke="#f9a93b" stroke-width="7"/>
- <circle cx="820" cy="705" r="7" fill="#ffe77b"/>
- <!-- escalier en perspective -->
- <path d="M615 785l185 35 185-35-185-35z" fill="#fff0a0" stroke="#a75c37" stroke-width="8"/>
- <path d="M650 805l150 29 150-29-150-29z" fill="url(#purple)" stroke="#ffe27b" stroke-width="7"/>
- <path d="M685 825l115 22 115-22-115-22z" fill="url(#blue)" stroke="#ffe27b" stroke-width="7"/>
+<circle cx="260" cy="170" r="300" fill="url(#sunGlow)"/><circle cx="1380" cy="230" r="340" fill="url(#sunGlow)"/>
+<!-- nuages doux en volume -->
+<g filter="url(#softShadow)" opacity=".9" fill="url(#cloud)">
+ <ellipse cx="230" cy="265" rx="180" ry="58"/><ellipse cx="150" cy="245" rx="85" ry="75"/><ellipse cx="300" cy="220" rx="100" ry="92"/>
+ <ellipse cx="1370" cy="310" rx="190" ry="58"/><ellipse cx="1280" cy="285" rx="95" ry="80"/><ellipse cx="1440" cy="265" rx="100" ry="85"/>
+ <ellipse cx="780" cy="160" rx="140" ry="36" opacity=".6"/>
 </g>
-<!-- fanions colorés et étoiles -->
-<g filter="url(#shadow)"><path d="M160 330l90-40v90z" fill="#ffdc3e" stroke="#d34b40" stroke-width="7"/><path d="M1440 330l-90-40v90z" fill="#55db79" stroke="#247f85" stroke-width="7"/></g>
-<g fill="url(#gold)" stroke="#b36a23" stroke-width="5"><path d="M145 520l14 36 39 3-30 25 9 38-32-21-33 21 10-38-30-25 39-3z"/><path d="M1450 520l14 36 39 3-30 25 9 38-32-21-33 21 10-38-30-25 39-3z"/></g>
-<!-- gros jetons en relief sur les côtés, sans cartes -->
-<g filter="url(#shadow)"><ellipse cx="185" cy="785" rx="72" ry="27" fill="#8e4bc0"/><ellipse cx="185" cy="766" rx="72" ry="27" fill="url(#gold)" stroke="#fff0a0" stroke-width="9"/><ellipse cx="1410" cy="785" rx="72" ry="27" fill="#8e4bc0"/><ellipse cx="1410" cy="766" rx="72" ry="27" fill="url(#gold)" stroke="#fff0a0" stroke-width="9"/></g>
-<!-- plateau multicolore au premier plan -->
-<g transform="translate(0 870)">
- <path d="M0 0H1600V130H0z" fill="#173b76" stroke="#fbd85a" stroke-width="12"/>
- <g stroke="#fff1ba" stroke-width="7">
-  <path d="M25 22h150v82H25z" fill="#ff4d48"/><path d="M195 22h150v82H195z" fill="#ffce32"/><path d="M365 22h150v82H365z" fill="#41c96b"/><path d="M535 22h150v82H535z" fill="#2e9be8"/><path d="M705 22h150v82H705z" fill="#ff8a37"/><path d="M875 22h150v82H875z" fill="#a45de1"/><path d="M1045 22h150v82h-150z" fill="#ff4d48"/><path d="M1215 22h150v82h-150z" fill="#ffce32"/><path d="M1385 22h150v82h-150z" fill="#41c96b"/>
- </g>
- <g fill="#fff6d7" opacity=".9"><circle cx="100" cy="62" r="14"/><path d="M250 42h40v40h-40z"/><circle cx="440" cy="62" r="14"/><path d="M590 42h40v40h-40z"/><circle cx="780" cy="62" r="14"/><path d="M930 42h40v40h-40z"/><circle cx="1120" cy="62" r="14"/><path d="M1270 42h40v40h-40z"/><circle cx="1460" cy="62" r="14"/></g>
+<!-- îlot flottant et plateforme en plusieurs étages -->
+<g filter="url(#deepShadow)">
+ <path d="M120 755Q800 590 1480 755L1400 890Q800 1035 200 890Z" fill="#6c3ca9" stroke="#fff0a0" stroke-width="13"/>
+ <path d="M200 790Q800 650 1400 790L1365 850Q800 980 235 850Z" fill="url(#violet)" stroke="#ffc84a" stroke-width="12"/>
+ <path d="M245 795Q800 680 1355 795L1325 835Q800 950 275 835Z" fill="#f8d76a" stroke="#fff7c6" stroke-width="9"/>
+ <path d="M285 800Q800 700 1315 800L1285 825Q800 915 315 825Z" fill="#fff0c5"/>
 </g>
-<rect width="1600" height="1000" fill="url(#sparkle)" opacity=".4"/>
-<!-- voile léger pour conserver la lisibilité des panneaux -->
-<rect width="1600" height="1000" fill="#fff7df" opacity=".09"/>
+<!-- banque 3D, façade et côté droit -->
+<g filter="url(#deepShadow)">
+ <!-- murs et profondeur du bâtiment -->
+ <path d="M350 405L1030 330 1270 430 1270 690 1030 765 350 680Z" fill="#ad6728" stroke="#9a4c25" stroke-width="13"/>
+ <path d="M350 405L1030 480 1030 765 350 680Z" fill="url(#ivory)" stroke="#b77a38" stroke-width="13"/>
+ <path d="M1030 480L1270 430 1270 690 1030 765Z" fill="#d8ad70" stroke="#9a572e" stroke-width="12"/>
+ <!-- socle doré -->
+ <path d="M310 680L1030 765 1310 675 1310 730 1030 825 310 735Z" fill="url(#goldSide)" stroke="#a75a1c" stroke-width="10"/>
+ <path d="M330 650L1030 730 1290 650 1290 690 1030 780 330 700Z" fill="url(#gold)" stroke="#fff1a2" stroke-width="9"/>
+ <!-- entablement massif -->
+ <path d="M300 405L1030 485 1300 400 1300 455 1030 545 300 465Z" fill="url(#gold)" stroke="#a65a1d" stroke-width="12"/>
+ <path d="M320 380L1030 455 1280 380 1280 415 1030 500 320 425Z" fill="#fff1b0" stroke="#d38a26" stroke-width="8"/>
+ <!-- façade arrière et dôme rouge bombé -->
+ <path d="M285 385Q340 190 610 130Q840 70 1055 155Q1195 215 1275 385L1030 470 350 395Z" fill="url(#redDome)" stroke="#a94a45" stroke-width="14"/>
+ <path d="M350 365Q415 210 630 165Q840 115 1030 190Q1145 240 1200 365" fill="none" stroke="#ffb5a0" stroke-width="18" opacity=".8"/>
+ <path d="M1030 165Q1195 220 1275 385L1030 470Z" fill="#a82b62" opacity=".4"/>
+ <path d="M285 385L1030 470 1275 385 1300 420 1030 510 285 425Z" fill="url(#gold)" stroke="#a65a1d" stroke-width="12"/>
+ <!-- lanterne sommitale -->
+ <path d="M760 145Q800 65 840 145L840 190 760 190Z" fill="url(#gold)" stroke="#a65a1d" stroke-width="8"/>
+ <path d="M800 70V35" stroke="#a65a1d" stroke-width="11"/><circle cx="800" cy="28" r="22" fill="url(#gold)" stroke="#fff6bb" stroke-width="7"/>
+ <!-- colonnes classiques épaisses avec faces éclairées -->
+ <g stroke="#9c642f" stroke-width="9">
+  <path d="M405 440L490 450 490 665 405 655Z" fill="url(#gold)"/><path d="M490 450l20 3v215l-20-3z" fill="#fff3b8"/>
+  <path d="M600 460L685 470 685 690 600 680Z" fill="url(#gold)"/><path d="M685 470l20 3v220l-20-3z" fill="#fff2b0"/>
+  <path d="M825 475L910 465 910 710 825 720Z" fill="url(#gold)"/><path d="M825 475l-20 2v240l20 3z" fill="#fff3bd"/>
+  <path d="M1010 455L1090 435 1090 690 1010 710Z" fill="url(#gold)"/><path d="M1010 455l-20 5v245l20 5z" fill="#fff2b0"/>
+ </g>
+ <!-- chapiteaux et bases -->
+ <g fill="url(#gold)" stroke="#a65a1d" stroke-width="7">
+  <path d="M385 425l125 14v35l-125-15z"/><path d="M580 445l125 14v35l-125-14z"/><path d="M790 450l140-15v38l-140 15z"/><path d="M980 430l130-30v38l-130 30z"/>
+  <path d="M390 650l120 14v34l-120-14z"/><path d="M585 675l120 14v34l-120-14z"/><path d="M790 700l140-15v34l-140 15z"/><path d="M980 690l130-30v34l-130 30z"/>
+ </g>
+ <!-- vitraux bleu turquoise -->
+ <g stroke="#fdf0a9" stroke-width="10">
+  <path d="M520 480Q560 415 600 480V645L520 635Z" fill="url(#tealGlass)"/>
+  <path d="M710 495Q765 410 820 495V680L710 668Z" fill="url(#tealGlass)"/>
+  <path d="M920 485Q965 420 1010 470V660L920 680Z" fill="url(#tealGlass)"/>
+ </g>
+ <g stroke="#d7ffff" stroke-width="7" opacity=".8"><path d="M560 470v165M765 475v190M965 470v190"/></g>
+ <!-- grande porte centrale cintrée -->
+ <path d="M700 690Q700 540 800 530Q900 540 900 690V735L800 750 700 735Z" fill="#8e3d9e" stroke="#ffe47a" stroke-width="15"/>
+ <path d="M730 695Q730 565 800 555Q870 565 870 695V730L800 742 730 730Z" fill="url(#tealGlass)" stroke="#fff0a4" stroke-width="8"/>
+ <path d="M800 560V740" stroke="#fff4bc" stroke-width="7"/>
+ <circle cx="850" cy="675" r="9" fill="url(#gold)" stroke="#a65a1d" stroke-width="3"/>
+ <!-- escalier profond -->
+ <path d="M570 745L800 795 1030 745 800 700Z" fill="#c38a48" stroke="#fff0a0" stroke-width="9"/>
+ <path d="M600 770L800 815 1000 770 800 730Z" fill="url(#gold)" stroke="#fff5bc" stroke-width="8"/>
+ <path d="M640 795L800 832 960 795 800 762Z" fill="#f4d6ff" stroke="#a76ac5" stroke-width="8"/>
+ <path d="M680 820L800 848 920 820 800 795Z" fill="url(#blueGem)" stroke="#fff5bc" stroke-width="7"/>
+</g>
+<!-- colonnes latérales surmontées de gemmes bleues -->
+<g filter="url(#softShadow)">
+ <g>
+  <path d="M185 480L255 465 255 760 185 775Z" fill="url(#ivory)" stroke="#a86b31" stroke-width="9"/><path d="M255 465l20 5v290l-20 0z" fill="#c58d4f"/>
+  <path d="M160 460L220 430 280 460 220 490Z" fill="url(#gold)" stroke="#a86b31" stroke-width="8"/>
+  <path d="M220 350L260 405 220 455 180 405Z" fill="url(#blueGem)" stroke="#e6ffff" stroke-width="7"/><path d="M220 350v105" stroke="#fff" stroke-width="5" opacity=".7"/>
+ </g>
+ <g>
+  <path d="M1345 465L1415 480 1415 775 1345 760Z" fill="url(#ivory)" stroke="#a86b31" stroke-width="9"/><path d="M1345 465l-20 5v290l20 0z" fill="#c58d4f"/>
+  <path d="M1320 460L1380 430 1440 460 1380 490Z" fill="url(#gold)" stroke="#a86b31" stroke-width="8"/>
+  <path d="M1380 350L1420 405 1380 455 1340 405Z" fill="url(#blueGem)" stroke="#e6ffff" stroke-width="7"/><path d="M1380 350v105" stroke="#fff" stroke-width="5" opacity=".7"/>
+ </g>
+</g>
+<!-- coffres à trésor sur les côtés -->
+<g filter="url(#deepShadow)">
+ <g transform="translate(95 700)"><path d="M0 55L105 35 185 65 78 90Z" fill="#a84d30" stroke="#713b45" stroke-width="9"/><path d="M0 55V5Q85-45 185 15V65L78 90Z" fill="#e49a28" stroke="#8f4a28" stroke-width="9"/><path d="M0 5Q85-45 185 15L185 45Q85-5 0 35Z" fill="url(#gold)"/><path d="M80 20l25-8 0 62-25 8z" fill="#f8d95c" stroke="#9c541e" stroke-width="6"/><circle cx="94" cy="46" r="10" fill="#fff5b0"/></g>
+ <g transform="translate(1310 690)"><path d="M0 55L105 35 185 65 78 90Z" fill="#a84d30" stroke="#713b45" stroke-width="9"/><path d="M0 55V5Q85-45 185 15V65L78 90Z" fill="#e49a28" stroke="#8f4a28" stroke-width="9"/><path d="M0 5Q85-45 185 15L185 45Q85-5 0 35Z" fill="url(#gold)"/><path d="M80 20l25-8 0 62-25 8z" fill="#f8d95c" stroke="#9c541e" stroke-width="6"/><circle cx="94" cy="46" r="10" fill="#fff5b0"/></g>
+</g>
+<!-- montagnes de pièces dorées, relief circulaire -->
+<g filter="url(#softShadow)" stroke="#b97817" stroke-width="6">
+ <g transform="translate(310 790)"><ellipse cx="0" cy="30" rx="58" ry="19" fill="#b66c16"/><ellipse cx="0" cy="17" rx="58" ry="19" fill="url(#gold)"/><ellipse cx="0" cy="4" rx="58" ry="19" fill="url(#gold)"/><ellipse cx="0" cy="-9" rx="58" ry="19" fill="url(#gold)"/><path d="M-28-10q28-18 56 0" fill="none" stroke="#fff6b8" stroke-width="5"/></g>
+ <g transform="translate(1230 790)"><ellipse cx="0" cy="30" rx="58" ry="19" fill="#b66c16"/><ellipse cx="0" cy="17" rx="58" ry="19" fill="url(#gold)"/><ellipse cx="0" cy="4" rx="58" ry="19" fill="url(#gold)"/><ellipse cx="0" cy="-9" rx="58" ry="19" fill="url(#gold)"/><path d="M-28-10q28-18 56 0" fill="none" stroke="#fff6b8" stroke-width="5"/></g>
+ <g transform="translate(470 830)"><ellipse cx="0" cy="20" rx="38" ry="13" fill="#b66c16"/><ellipse cx="0" cy="7" rx="38" ry="13" fill="url(#gold)"/><ellipse cx="0" cy="-6" rx="38" ry="13" fill="url(#gold)"/></g>
+ <g transform="translate(1120 830)"><ellipse cx="0" cy="20" rx="38" ry="13" fill="#b66c16"/><ellipse cx="0" cy="7" rx="38" ry="13" fill="url(#gold)"/><ellipse cx="0" cy="-6" rx="38" ry="13" fill="url(#gold)"/></g>
+</g>
+<!-- dés 3D colorés, sans aucun visuel de carte -->
+<g filter="url(#deepShadow)">
+ <g transform="translate(170 585) rotate(-14)"><path d="M0 30L85 8 150 35 65 60Z" fill="#b91f58"/><path d="M0 30V-48L65-70V60Z" fill="#ff5a70" stroke="#fff0cf" stroke-width="7"/><path d="M65-70L150-48V35L65 60Z" fill="#e92e5b" stroke="#fff0cf" stroke-width="7"/><g fill="#fff"><circle cx="25" cy="-25" r="8"/><circle cx="45" cy="15" r="8"/><circle cx="95" cy="-40" r="8"/><circle cx="125" cy="-5" r="8"/></g></g>
+ <g transform="translate(1280 575) rotate(12)"><path d="M0 30L85 8 150 35 65 60Z" fill="#1760a4"/><path d="M0 30V-48L65-70V60Z" fill="#38bde8" stroke="#fff0cf" stroke-width="7"/><path d="M65-70L150-48V35L65 60Z" fill="#2473c8" stroke="#fff0cf" stroke-width="7"/><g fill="#fff"><circle cx="25" cy="-25" r="8"/><circle cx="45" cy="15" r="8"/><circle cx="95" cy="-40" r="8"/><circle cx="125" cy="-5" r="8"/></g></g>
+</g>
+<!-- étoiles et éclats -->
+<g fill="url(#gold)" stroke="#fff8cf" stroke-width="4" filter="url(#softShadow)"><path d="M95 325l15 42 45 5-35 28 11 44-36-24-37 24 12-44-35-28 45-5z"/><path d="M1500 320l15 42 45 5-35 28 11 44-36-24-37 24 12-44-35-28 45-5z"/><path d="M560 230l10 27 29 3-22 18 7 28-24-15-24 15 8-28-23-18 29-3z"/><path d="M1080 250l10 27 29 3-22 18 7 28-24-15-24 15 8-28-23-18 29-3z"/></g>
+<rect width="1600" height="1000" fill="url(#glints)" opacity=".5"/>
+<rect width="1600" height="1000" fill="#fff" opacity=".025"/>
 </svg>
