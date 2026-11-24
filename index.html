@@ -551,6 +551,13 @@
 
         session.user.email || "Compte Facebook connecté";
 
+      // Présentation affichée une seule fois par compte sur cet appareil.
+      const welcomeKey = "goPartageWelcomeSeen:" + session.user.id;
+      if (!localStorage.getItem(welcomeKey)) {
+        localStorage.setItem(welcomeKey, "1");
+        alert("Bienvenue sur GO Partage !\n\nGO Partage est une communauté d’entraide entre joueurs de Monopoly GO. Tu peux proposer tes cartes en double et demander gratuitement celles qui te manquent.\n\nQUOTA DE DONS\nTa première demande est possible sans avoir encore donné. Après ta première réception confirmée : 1 à 2 réceptions = 1 don confirmé requis ; 3 à 4 = 2 dons ; 5 à 6 = 3 dons ; et ainsi de suite. Un don compte uniquement lorsque le bénéficiaire confirme l’avoir reçu.\n\nCONSEIL IMPORTANT\nPrends une capture d’écran au moment où tu envoies chaque carte et conserve-la. Elle pourra servir de preuve en cas de désaccord ou de litige.\n\nMerci de faire vivre GO Partage !");
+      }
+
     } else {
 
       loginPanel.hidden = false;
@@ -1367,6 +1374,16 @@
             const { data: donorProfiles, error: donorProfilesError } = await supabase
               .from("profiles").select("id, display_name").in("id", donorIds);
             const donorNames = new Map((donorProfiles || []).map(p => [p.id, p.display_name || "Membre GO Partage"]));
+            // Priorise les cartes qui permettraient au membre de terminer leur set.
+            const completesSet = offer => {
+              const card = cardById.get(offer.card_id);
+              if (!card) return false;
+              const cardsInSet = cards.filter(candidate => candidate.set_id === card.set_id);
+              return cardsInSet.length > 0 && cardsInSet.every(candidate =>
+                candidate.id === card.id || (quantities.get(candidate.id) || 0) > 0
+              );
+            };
+            missingOnlyOffers.sort((a, b) => Number(completesSet(b)) - Number(completesSet(a)));
             const myRequests = myActiveRequests;
             const myRequestsError = myActiveRequestsError;
             const requestedCards = new Set((myRequests || []).map(r => r.card_id));
@@ -1388,6 +1405,12 @@
               name.textContent = (set ? (set.name_fr || set.name) + " · " : "") + "#" + card.card_number + " " + (card.name_fr || card.name);
               const detail = document.createElement("p");
               detail.textContent = "Don proposé par " + (donorNames.get(offer.member_id) || "Membre GO Partage") + " · " + offer.quantity + " exemplaire(s) disponible(s)";
+              if (completesSet(offer)) {
+                const completion = document.createElement("p");
+                completion.className = "muted";
+                completion.textContent = "⭐ Cette carte te permettrait de terminer ce set !";
+                item.appendChild(completion);
+              }
               const ask = document.createElement("button");
               const alreadyAsked = requestedCards.has(card.id);
               ask.textContent = alreadyAsked ? "Demande déjà envoyée" : "Demander gratuitement";
