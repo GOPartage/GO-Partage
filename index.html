@@ -435,6 +435,9 @@
     <div class="set" style="max-width:520px;margin:14px auto;text-align:left">
       <label for="displayNameInput">Mon pseudo</label>
       <input id="displayNameInput" type="text" maxlength="30" placeholder="Ton pseudo" style="display:block;width:100%;box-sizing:border-box;padding:12px;margin-top:7px;border:1px solid #c8a26a;border-radius:8px">
+      <label for="monopolyGoLinkInput" style="display:block;margin-top:16px">Mon lien d’invitation Monopoly GO</label>
+      <input id="monopolyGoLinkInput" type="url" maxlength="500" placeholder="https://mply.io/..." style="display:block;width:100%;box-sizing:border-box;padding:12px;margin-top:7px;border:1px solid #c8a26a;border-radius:8px">
+      <p class="muted">Dans Monopoly GO : Amis → Inviter → Copier le lien. Colle-le ici une seule fois. Il sera proposé automatiquement après l’acceptation d’un don.</p>
       <p id="accountEmail" class="muted"></p>
       <button id="saveProfileButton">Enregistrer mon pseudo</button>
       <p id="profileFeedback" class="muted" role="status"></p>
@@ -867,9 +870,10 @@
     feedback.textContent = "Chargement...";
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { feedback.textContent = "Reconnecte-toi pour accéder à ton compte."; return; }
-    const { data, error } = await supabase.from("profiles").select("display_name").eq("id", user.id).single();
+    const { data, error } = await supabase.from("profiles").select("display_name, monopoly_go_link").eq("id", user.id).single();
     if (error) { feedback.textContent = "Impossible de charger ton profil : " + error.message; return; }
     document.getElementById("displayNameInput").value = data.display_name || "";
+    document.getElementById("monopolyGoLinkInput").value = data.monopoly_go_link || "";
     document.getElementById("accountEmail").textContent = user.email || "Compte Facebook connecté";
     feedback.textContent = "";
   }
@@ -878,14 +882,32 @@
     const input = document.getElementById("displayNameInput");
     const feedback = document.getElementById("profileFeedback");
     const displayName = input.value.trim();
+    const rawInviteLink = document.getElementById("monopolyGoLinkInput").value.trim();
+    let inviteLink = null;
+    if (rawInviteLink) {
+      try {
+        const parsed = new URL(rawInviteLink);
+        if (parsed.protocol !== "https:" || !["mply.io", "www.mply.io", "s.scope.ly"].includes(parsed.hostname.toLowerCase())) {
+          feedback.textContent = "Utilise ton lien officiel Monopoly GO commençant par https://mply.io/ ou https://s.scope.ly/.";
+          return;
+        }
+        inviteLink = parsed.href;
+      } catch {
+        feedback.textContent = "Le lien Monopoly GO n’est pas valide. Colle le lien complet.";
+        return;
+      }
+    }
     if (displayName.length < 2) { feedback.textContent = "Choisis un pseudo d’au moins 2 caractères."; return; }
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { feedback.textContent = "Reconnecte-toi pour enregistrer ton pseudo."; return; }
     const button = document.getElementById("saveProfileButton");
     button.disabled = true;
-    const { error } = await supabase.from("profiles").update({ display_name: displayName }).eq("id", user.id);
+    const { error } = await supabase.from("profiles").update({
+      display_name: displayName,
+      monopoly_go_link: inviteLink
+    }).eq("id", user.id);
     button.disabled = false;
-    feedback.textContent = error ? "Enregistrement impossible : " + error.message : "Ton pseudo a bien été enregistré.";
+    feedback.textContent = error ? "Enregistrement impossible : " + error.message : "Ton pseudo et ton lien Monopoly GO ont bien été enregistrés.";
   });
 
   async function loadMySuggestions() {
@@ -1436,7 +1458,7 @@
       } else {
         const requesterIds = [...new Set(incomingRequests.map(r => r.member_id))];
         const { data: requesterProfiles } = await supabase
-          .from("profiles").select("id, display_name").in("id", requesterIds);
+          .from("profiles").select("id, display_name, monopoly_go_link").in("id", requesterIds);
         const requesterNames = new Map((requesterProfiles || []).map(p => [p.id, p.display_name || "Membre GO Partage"]));
         incomingRequests.forEach(request => {
           const card = cardById.get(request.card_id);
@@ -1451,7 +1473,7 @@
           const detail = document.createElement("p");
           detail.textContent = (requesterNames.get(request.member_id) || "Membre GO Partage") + " souhaite recevoir cette carte gratuitement.";
           const send = document.createElement("button");
-          send.textContent = "Envoyer le don";
+          send.textContent = "Accepter et envoyer le don";
           const info = document.createElement("p");
           info.className = "muted";
           send.addEventListener("click", async () => {
@@ -1462,7 +1484,7 @@
             });
             if (error) {
               send.disabled = false;
-              send.textContent = "Envoyer le don";
+              send.textContent = "Accepter et envoyer le don";
               info.textContent = "Impossible de préparer le don : " + error.message;
               return;
             }
@@ -1479,6 +1501,69 @@
       empty.className = "muted";
       empty.textContent = "Publie un don pour recevoir des demandes de cartes.";
       myDonationsContent.appendChild(empty);
+    }
+
+    // Liens directs Monopoly GO pour les dons envoyés en attente
+    const sentTitle = document.createElement("h3");
+    sentTitle.textContent = "🔗 Ajouter les bénéficiaires sur Monopoly GO";
+    myDonationsContent.appendChild(sentTitle);
+    const { data: sentTransfers, error: sentTransfersError } = await supabase
+      .from("transfers").select("id, recipient_id, card_id, created_at")
+      .eq("donor_id", user.id).eq("status", "awaiting_recipient")
+      .order("created_at", { ascending: false });
+    if (sentTransfersError) {
+      const msg = document.createElement("p");
+      msg.className = "muted";
+      msg.textContent = "Impossible de charger les liens des dons envoyés : " + sentTransfersError.message;
+      myDonationsContent.appendChild(msg);
+    } else if (!sentTransfers || !sentTransfers.length) {
+      const empty = document.createElement("p");
+      empty.className = "muted";
+      empty.textContent = "Aucun don envoyé en attente pour le moment.";
+      myDonationsContent.appendChild(empty);
+    } else {
+      await ensureDonationCardDetails(sentTransfers.map(t => t.card_id));
+      const recipientIds = [...new Set(sentTransfers.map(t => t.recipient_id))];
+      const { data: recipients } = await supabase.from("profiles")
+        .select("id, display_name, monopoly_go_link").in("id", recipientIds);
+      const recipientById = new Map((recipients || []).map(p => [p.id, p]));
+      sentTransfers.forEach(transfer => {
+        const card = cardById.get(transfer.card_id);
+        const recipient = recipientById.get(transfer.recipient_id);
+        const set = card ? setById.get(card.set_id) : null;
+        const item = document.createElement("div");
+        item.className = "set";
+        const heading = document.createElement("strong");
+        heading.textContent = card
+          ? (set ? (set.name_fr || set.name) + " · " : "") + "#" + card.card_number + " " + (card.name_fr || card.name)
+          : "Don envoyé";
+        const detail = document.createElement("p");
+        detail.className = "muted";
+        detail.textContent = "Bénéficiaire : " + (recipient && recipient.display_name ? recipient.display_name : "Membre GO Partage");
+        item.append(heading, detail);
+        let inviteUrl = "";
+        try {
+          const parsed = new URL(recipient && recipient.monopoly_go_link ? recipient.monopoly_go_link : "");
+          if (parsed.protocol === "https:" && ["mply.io", "www.mply.io", "s.scope.ly"].includes(parsed.hostname.toLowerCase())) {
+            inviteUrl = parsed.href;
+          }
+        } catch {}
+        if (inviteUrl) {
+          const inviteButton = document.createElement("a");
+          inviteButton.href = inviteUrl;
+          inviteButton.target = "_blank";
+          inviteButton.rel = "noopener noreferrer";
+          inviteButton.textContent = "🎲 AJOUTER SUR MONOPOLY GO";
+          inviteButton.style.cssText = "display:block;margin:12px 0 4px;padding:14px 12px;border-radius:10px;text-decoration:none;font-weight:bold;text-align:center;color:#3b312d;background:linear-gradient(115deg,#f8e7a8 0%,#c8e4f0 52%,#efd0df 100%);border:1px solid rgba(255,255,255,.9);box-shadow:0 4px 0 rgba(83,100,125,.45),0 7px 14px rgba(29,48,70,.18)";
+          item.appendChild(inviteButton);
+        } else {
+          const missing = document.createElement("p");
+          missing.className = "muted";
+          missing.textContent = "Ce joueur n’a pas encore enregistré son lien Monopoly GO dans son profil.";
+          item.appendChild(missing);
+        }
+        myDonationsContent.appendChild(item);
+      });
     }
 
     // Réception des dons : le bénéficiaire confirme pour ajouter la carte à son album
