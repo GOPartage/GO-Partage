@@ -379,9 +379,9 @@
 
       <button class="tile" id="myDonationsButton">🤝<br>Mes dons</button>
 
-      <button class="tile" disabled>👤<br>Mon compte</button>
+      <button class="tile" id="myAccountButton">👤<br>Mon compte</button>
 
-      <button class="tile" disabled>💡<br>Suggestions</button>
+      <button class="tile" id="suggestionsButton">💡<br>Suggestions</button>
 
     </div>
 
@@ -401,6 +401,37 @@
     <h2>🤝 Mes dons</h2>
     <p class="muted">Propose gratuitement tes cartes en double à la communauté.</p>
     <div id="myDonationsContent">Chargement de tes dons...</div>
+  </section>
+
+  <section class="panel" id="myAccountPanel" hidden>
+    <button class="small-button" id="backFromAccountButton">← Retour</button>
+    <h2>👤 Mon compte</h2>
+    <p class="muted">Choisis le nom affiché aux autres membres de GO Partage.</p>
+    <div class="set" style="max-width:520px;margin:14px auto;text-align:left">
+      <label for="displayNameInput">Mon pseudo</label>
+      <input id="displayNameInput" type="text" maxlength="30" placeholder="Ton pseudo" style="display:block;width:100%;box-sizing:border-box;padding:12px;margin-top:7px;border:1px solid #c8a26a;border-radius:8px">
+      <p id="accountEmail" class="muted"></p>
+      <button id="saveProfileButton">Enregistrer mon pseudo</button>
+      <p id="profileFeedback" class="muted" role="status"></p>
+    </div>
+  </section>
+
+  <section class="panel" id="suggestionsPanel" hidden>
+    <button class="small-button" id="backFromSuggestionsButton">← Retour</button>
+    <h2>💡 Suggérer une carte</h2>
+    <p class="muted">Une carte ou un set manque dans l’album ? Envoie une suggestion à l’équipe GO Partage pour vérification.</p>
+    <div class="set" style="max-width:560px;margin:14px auto;text-align:left">
+      <label>Nom de l’album<input id="suggestAlbum" maxlength="100" required placeholder="Nom de l’album" style="display:block;width:100%;box-sizing:border-box;padding:10px;margin:5px 0 12px;border:1px solid #c8a26a;border-radius:8px"></label>
+      <label>Nom du set<input id="suggestSet" maxlength="100" required placeholder="Nom du set" style="display:block;width:100%;box-sizing:border-box;padding:10px;margin:5px 0 12px;border:1px solid #c8a26a;border-radius:8px"></label>
+      <label>Numéro de la carte<input id="suggestNumber" maxlength="20" required placeholder="Ex. 7" style="display:block;width:100%;box-sizing:border-box;padding:10px;margin:5px 0 12px;border:1px solid #c8a26a;border-radius:8px"></label>
+      <label>Nom de la carte<input id="suggestCardName" maxlength="120" required placeholder="Nom de la carte" style="display:block;width:100%;box-sizing:border-box;padding:10px;margin:5px 0 12px;border:1px solid #c8a26a;border-radius:8px"></label>
+      <label>Rareté (facultatif)<input id="suggestRarity" maxlength="40" placeholder="Ex. 4 étoiles" style="display:block;width:100%;box-sizing:border-box;padding:10px;margin:5px 0 12px;border:1px solid #c8a26a;border-radius:8px"></label>
+      <label style="display:flex;align-items:center;gap:8px;margin:8px 0"><input id="suggestGold" type="checkbox"> Carte dorée</label>
+      <label>Précisions (facultatif)<textarea id="suggestNotes" maxlength="500" rows="3" placeholder="Informations utiles..." style="display:block;width:100%;box-sizing:border-box;padding:10px;margin:5px 0 12px;border:1px solid #c8a26a;border-radius:8px"></textarea></label>
+      <button id="submitSuggestionButton">Envoyer ma suggestion</button>
+      <p id="suggestionFeedback" class="muted" role="status"></p>
+    </div>
+    <div id="mySuggestionsList"></div>
   </section>
 
 </main>
@@ -430,6 +461,8 @@
   const myCardsContent = document.getElementById("myCardsContent");
   const myDonationsPanel = document.getElementById("myDonationsPanel");
   const myDonationsContent = document.getElementById("myDonationsContent");
+  const myAccountPanel = document.getElementById("myAccountPanel");
+  const suggestionsPanel = document.getElementById("suggestionsPanel");
 
   const status = document.getElementById("status");
 
@@ -533,6 +566,104 @@
   document.getElementById("backFromDonationsButton").addEventListener("click", () => {
     myDonationsPanel.hidden = true;
     dashboard.hidden = false;
+  });
+
+  document.getElementById("myAccountButton").addEventListener("click", async () => {
+    dashboard.hidden = true;
+    myAccountPanel.hidden = false;
+    await loadMyAccount();
+  });
+  document.getElementById("backFromAccountButton").addEventListener("click", () => {
+    myAccountPanel.hidden = true; dashboard.hidden = false;
+  });
+  document.getElementById("suggestionsButton").addEventListener("click", async () => {
+    dashboard.hidden = true;
+    suggestionsPanel.hidden = false;
+    await loadMySuggestions();
+  });
+  document.getElementById("backFromSuggestionsButton").addEventListener("click", () => {
+    suggestionsPanel.hidden = true; dashboard.hidden = false;
+  });
+
+  async function loadMyAccount() {
+    const feedback = document.getElementById("profileFeedback");
+    feedback.textContent = "Chargement...";
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { feedback.textContent = "Reconnecte-toi pour accéder à ton compte."; return; }
+    const { data, error } = await supabase.from("profiles").select("display_name").eq("id", user.id).single();
+    if (error) { feedback.textContent = "Impossible de charger ton profil : " + error.message; return; }
+    document.getElementById("displayNameInput").value = data.display_name || "";
+    document.getElementById("accountEmail").textContent = user.email || "Compte Facebook connecté";
+    feedback.textContent = "";
+  }
+
+  document.getElementById("saveProfileButton").addEventListener("click", async () => {
+    const input = document.getElementById("displayNameInput");
+    const feedback = document.getElementById("profileFeedback");
+    const displayName = input.value.trim();
+    if (displayName.length < 2) { feedback.textContent = "Choisis un pseudo d’au moins 2 caractères."; return; }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { feedback.textContent = "Reconnecte-toi pour enregistrer ton pseudo."; return; }
+    const button = document.getElementById("saveProfileButton");
+    button.disabled = true;
+    const { error } = await supabase.from("profiles").update({ display_name: displayName }).eq("id", user.id);
+    button.disabled = false;
+    feedback.textContent = error ? "Enregistrement impossible : " + error.message : "Ton pseudo a bien été enregistré.";
+  });
+
+  async function loadMySuggestions() {
+    const list = document.getElementById("mySuggestionsList");
+    const feedback = document.getElementById("suggestionFeedback");
+    list.textContent = "Chargement de tes suggestions...";
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { list.textContent = "Reconnecte-toi pour envoyer une suggestion."; return; }
+    const { data, error } = await supabase.from("card_suggestions")
+      .select("id, album_name, set_name, card_number, card_name, status, created_at")
+      .eq("submitted_by", user.id).order("created_at", { ascending: false }).limit(30);
+    if (error) { list.textContent = "Impossible de charger tes suggestions : " + error.message; return; }
+    list.replaceChildren();
+    const title = document.createElement("h3");
+    title.textContent = "Mes suggestions envoyées";
+    list.appendChild(title);
+    if (!data || !data.length) {
+      const empty = document.createElement("p"); empty.className = "muted";
+      empty.textContent = "Tu n’as pas encore envoyé de suggestion."; list.appendChild(empty); return;
+    }
+    data.forEach(row => {
+      const item = document.createElement("div"); item.className = "set";
+      const name = document.createElement("strong");
+      name.textContent = row.album_name + " · " + row.set_name + " · #" + row.card_number + " " + row.card_name;
+      const state = document.createElement("p"); state.className = "muted";
+      state.textContent = row.status === "pending" ? "En attente de vérification" : row.status === "approved" ? "Suggestion approuvée" : "Suggestion refusée";
+      item.append(name,state); list.appendChild(item);
+    });
+  }
+
+  document.getElementById("submitSuggestionButton").addEventListener("click", async () => {
+    const feedback = document.getElementById("suggestionFeedback");
+    const values = {
+      album_name: document.getElementById("suggestAlbum").value.trim(),
+      set_name: document.getElementById("suggestSet").value.trim(),
+      card_number: document.getElementById("suggestNumber").value.trim(),
+      card_name: document.getElementById("suggestCardName").value.trim(),
+      rarity: document.getElementById("suggestRarity").value.trim() || null,
+      is_gold: document.getElementById("suggestGold").checked,
+      notes: document.getElementById("suggestNotes").value.trim() || null
+    };
+    if (!values.album_name || !values.set_name || !values.card_number || !values.card_name) {
+      feedback.textContent = "Renseigne l’album, le set, le numéro et le nom de la carte."; return;
+    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { feedback.textContent = "Reconnecte-toi pour envoyer ta suggestion."; return; }
+    const button = document.getElementById("submitSuggestionButton");
+    button.disabled = true; feedback.textContent = "Envoi en cours...";
+    const { error } = await supabase.from("card_suggestions").insert({ ...values, submitted_by: user.id });
+    button.disabled = false;
+    if (error) { feedback.textContent = "Envoi impossible : " + error.message; return; }
+    feedback.textContent = "Merci ! Ta suggestion a été envoyée à l’équipe pour vérification.";
+    ["suggestAlbum","suggestSet","suggestNumber","suggestCardName","suggestRarity","suggestNotes"].forEach(id => document.getElementById(id).value = "");
+    document.getElementById("suggestGold").checked = false;
+    await loadMySuggestions();
   });
 
   // MES DONS : publier et consulter ses propositions de dons
