@@ -2054,8 +2054,8 @@
                 } else {
                   const d = distance(clean,target);
                   score = 1 - d / Math.max(clean.length,target.length);
-                  const targetTokens = String(name).normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase().match(/[a-z0-9]{3,}/g) || [];
-                  const ocrTokens = String(ocrText).normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase().match(/[a-z0-9]{3,}/g) || [];
+                  const targetTokens = String(name).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().match(/[a-z0-9]{3,}/g) || [];
+                  const ocrTokens = String(ocrText).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().match(/[a-z0-9]{3,}/g) || [];
                   if (targetTokens.length && ocrTokens.length) {
                     const tokenHits = targetTokens.filter(token => ocrTokens.some(word => {
                       const max = token.length >= 8 ? 2 : 1;
