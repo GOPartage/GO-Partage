@@ -7,6 +7,13 @@
   <meta charset="UTF-8">
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f4d98d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="GO Partage">
+  <link rel="manifest" href="/GO-Partage/manifest.webmanifest">
+  <link rel="icon" href="/GO-Partage/app-icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/GO-Partage/app-icon.svg">
 
   <title>GO Partage</title>
 
@@ -1852,6 +1859,14 @@
 
   displaySession(session);
   if (session) await loadAdminAccess(session.user.id);
+
+  // Installation de GO Partage comme application sur le téléphone
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/GO-Partage/service-worker.js", { scope: "/GO-Partage/" })
+        .catch(error => console.error("Service worker GO Partage :", error));
+    });
+  }
 
 </script>
 
