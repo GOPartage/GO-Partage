@@ -1844,38 +1844,71 @@
           const textParts = [];
           for (let i = 0; i < importImages.length; i++) {
             const file = importImages[i];
-            // Première lecture de la capture originale.
+            // Lecture globale pour conserver les titres et les éventuels noms de sets.
             const originalResult = await worker.recognize(file);
-            textParts.push(originalResult.data.text || "");
+            textParts.push("[CAPTURE " + (i + 1) + " - PAGE COMPLETE]\n" + (originalResult.data.text || ""));
 
-            // Seconde lecture améliorée : agrandissement + niveaux de gris/contraste.
-            // Cela aide lorsque les noms des autocollants sont petits dans la capture.
+            // Nouvelle méthode : agrandir puis découper la page en 9 zones qui se chevauchent.
+            // Chaque autocollant est ainsi présenté seul à l'OCR, plutôt que noyé dans toute la page.
+            let bitmap = null;
             try {
-              const bitmap = await createImageBitmap(file);
-              const maxSide = Math.max(bitmap.width, bitmap.height);
-              const scale = Math.max(1, Math.min(2.5, 1800 / maxSide));
-              const canvas = document.createElement("canvas");
-              canvas.width = Math.round(bitmap.width * scale);
-              canvas.height = Math.round(bitmap.height * scale);
-              const context = canvas.getContext("2d", { willReadFrequently: true });
-              context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-              bitmap.close();
-              const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-              const pixels = imageData.data;
-              for (let p = 0; p < pixels.length; p += 4) {
-                const gray = pixels[p] * 0.299 + pixels[p + 1] * 0.587 + pixels[p + 2] * 0.114;
-                const contrasted = Math.max(0, Math.min(255, (gray - 128) * 1.35 + 128));
-                pixels[p] = pixels[p + 1] = pixels[p + 2] = contrasted;
+              bitmap = await createImageBitmap(file);
+              const source = document.createElement("canvas");
+              source.width = bitmap.width;
+              source.height = bitmap.height;
+              const sourceContext = source.getContext("2d", { willReadFrequently: true });
+              sourceContext.drawImage(bitmap, 0, 0);
+              const left = Math.round(bitmap.width * 0.035);
+              const top = Math.round(bitmap.height * 0.12);
+              const areaWidth = Math.round(bitmap.width * 0.93);
+              const areaHeight = Math.round(bitmap.height * 0.76);
+              const overlap = 0.08;
+              let zoneNumber = 0;
+
+              for (let row = 0; row < 3; row++) {
+                for (let col = 0; col < 3; col++) {
+                  zoneNumber++;
+                  const cellW = areaWidth / 3;
+                  const cellH = areaHeight / 3;
+                  const sx = Math.max(0, Math.round(left + col * cellW - cellW * overlap / 2));
+                  const sy = Math.max(0, Math.round(top + row * cellH - cellH * overlap / 2));
+                  const sw = Math.min(bitmap.width - sx, Math.round(cellW * (1 + overlap)));
+                  const sh = Math.min(bitmap.height - sy, Math.round(cellH * (1 + overlap)));
+                  const crop = document.createElement("canvas");
+                  const factor = Math.max(2.5, Math.min(4, 1200 / Math.max(sw, sh)));
+                  crop.width = Math.round(sw * factor);
+                  crop.height = Math.round(sh * factor);
+                  const cropContext = crop.getContext("2d", { willReadFrequently: true });
+                  cropContext.imageSmoothingEnabled = true;
+                  cropContext.imageSmoothingQuality = "high";
+                  cropContext.drawImage(source, sx, sy, sw, sh, 0, 0, crop.width, crop.height);
+
+                  // Première lecture en couleur, puis lecture contrastée en niveaux de gris.
+                  await worker.setParameters({ tessedit_pageseg_mode: "6", preserve_interword_spaces: "1" });
+                  const colorResult = await worker.recognize(crop);
+                  let zoneText = colorResult.data.text || "";
+                  const pixelsData = cropContext.getImageData(0, 0, crop.width, crop.height);
+                  const pixels = pixelsData.data;
+                  for (let p = 0; p < pixels.length; p += 4) {
+                    const gray = pixels[p] * 0.299 + pixels[p + 1] * 0.587 + pixels[p + 2] * 0.114;
+                    const enhanced = Math.max(0, Math.min(255, (gray - 118) * 1.65 + 128));
+                    pixels[p] = pixels[p + 1] = pixels[p + 2] = enhanced;
+                  }
+                  cropContext.putImageData(pixelsData, 0, 0);
+                  await worker.setParameters({ tessedit_pageseg_mode: "11", preserve_interword_spaces: "1" });
+                  const contrastResult = await worker.recognize(crop);
+                  const contrastText = contrastResult.data.text || "";
+                  if (contrastText.trim().length > zoneText.trim().length) zoneText = contrastText;
+                  textParts.push("[CAPTURE " + (i + 1) + " - CARTE " + zoneNumber + "]\n" + zoneText);
+                }
               }
-              context.putImageData(imageData, 0, 0);
-              await worker.setParameters({ tessedit_pageseg_mode: "11" });
-              const enhancedResult = await worker.recognize(canvas);
-              textParts.push(enhancedResult.data.text || "");
-              await worker.setParameters({ tessedit_pageseg_mode: "6" });
             } catch (imageError) {
-              // Si le navigateur ne peut pas prétraiter une image, la lecture originale reste utilisable.
+              textParts.push("[Découpage impossible : " + (imageError && imageError.message ? imageError.message : imageError) + "]");
+            } finally {
+              if (bitmap) bitmap.close();
             }
           }
+          await worker.setParameters({ tessedit_pageseg_mode: "6" });
           importText = textParts.join("\n");
           const normalizedText = normalizeForMatch(importText);
           const ocrWords = String(importText).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().match(/[a-z0-9]{3,}/g) || [];
