@@ -1349,8 +1349,8 @@
     receivedTitle.textContent = "🎉 Dons à confirmer";
     myDonationsContent.appendChild(receivedTitle);
     const { data: pendingTransfers, error: pendingError } = await supabase
-      .from("transfers").select("id, donor_id, card_id, created_at")
-      .eq("recipient_id", user.id).eq("status", "awaiting_recipient")
+      .from("transfers").select("id, donor_id, card_id, created_at, status, dispute_reason")
+      .eq("recipient_id", user.id).in("status", ["awaiting_recipient", "disputed"])
       .order("created_at", { ascending: false });
     if (pendingError) {
       const msg = document.createElement("p");
@@ -1376,25 +1376,49 @@
         const name = document.createElement("strong");
         name.textContent = (set ? (set.name_fr || set.name) + " · " : "") + "#" + card.card_number + " " + (card.name_fr || card.name);
         const detail = document.createElement("p");
-        detail.textContent = "Don envoyé par " + (names.get(transfer.donor_id) || "Membre GO Partage") + ". Confirme uniquement lorsque tu as bien reçu la carte dans le jeu.";
-        const confirm = document.createElement("button");
-        confirm.textContent = "J’ai reçu la carte";
+        detail.textContent = "Don envoyé par " + (names.get(transfer.donor_id) || "Membre GO Partage") + ".";
         const info = document.createElement("p");
         info.className = "muted";
-        confirm.addEventListener("click", async () => {
-          confirm.disabled = true;
-          confirm.textContent = "Confirmation...";
-          const { error } = await supabase.rpc("confirm_received_transfer", { p_transfer_id: transfer.id });
-          if (error) {
-            confirm.disabled = false;
-            confirm.textContent = "J’ai reçu la carte";
-            info.textContent = "Confirmation impossible : " + error.message;
-            return;
-          }
-          info.textContent = "Réception confirmée ! La carte a été ajoutée à Mes cartes.";
-          confirm.textContent = "Réception confirmée";
-        });
-        item.append(name, detail, confirm, info);
+        if (transfer.status === "disputed") {
+          info.textContent = "Litige transmis à l’administration : " + (transfer.dispute_reason || "En cours d’examen.");
+          item.append(name, detail, info);
+        } else {
+          detail.textContent += " Confirme uniquement lorsque tu as bien reçu la carte dans le jeu.";
+          const confirm = document.createElement("button");
+          confirm.textContent = "J’ai reçu la carte";
+          confirm.addEventListener("click", async () => {
+            confirm.disabled = true;
+            confirm.textContent = "Confirmation...";
+            const { error } = await supabase.rpc("confirm_received_transfer", { p_transfer_id: transfer.id });
+            if (error) {
+              confirm.disabled = false;
+              confirm.textContent = "J’ai reçu la carte";
+              info.textContent = "Confirmation impossible : " + error.message;
+              return;
+            }
+            info.textContent = "Réception confirmée ! La carte a été ajoutée à Mes cartes.";
+            confirm.textContent = "Réception confirmée";
+            await loadMyDonations();
+          });
+          const report = document.createElement("button");
+          report.className = "small-button";
+          report.textContent = "Signaler un problème";
+          report.addEventListener("click", async () => {
+            const reason = prompt("Explique le problème (au moins 10 caractères) :");
+            if (!reason) return;
+            report.disabled = true;
+            const { error } = await supabase.rpc("report_unreceived_transfer", {
+              p_transfer_id: transfer.id, p_reason: reason
+            });
+            if (error) {
+              report.disabled = false;
+              info.textContent = "Signalement impossible : " + error.message;
+              return;
+            }
+            await loadMyDonations();
+          });
+          item.append(name, detail, confirm, report, info);
+        }
         myDonationsContent.appendChild(item);
       });
     }
