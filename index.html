@@ -32,13 +32,32 @@
     }
 
     header {
-
-      background: linear-gradient(120deg, #b8905d, #d6b36b, #b8905d);
-
+      background: transparent;
       color: white;
+      padding: 28px 15px 18px;
+    }
 
-      padding: 25px 15px;
+    .brand-title {
+      display: inline-block;
+      margin: 0;
+      padding: 12px 30px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #173f78, #245da0);
+      border: 3px solid #f2c45e;
+      box-shadow: 0 5px 0 #102c52, 0 8px 18px #142b4770;
+      color: #fffdf5;
+      font-size: clamp(30px, 6vw, 44px);
+      letter-spacing: .5px;
+      text-shadow: 0 2px 2px #102c52;
+    }
 
+    .brand-tagline {
+      margin: 13px 0 0;
+      color: #fffdf5;
+      font-style: italic;
+      font-size: 17px;
+      font-weight: 600;
+      text-shadow: 0 2px 5px #17283dcc;
     }
 
     main {
@@ -289,9 +308,9 @@
 
 <header>
 
-  <h1>🎁 GO Partage</h1>
+  <h1 class="brand-title">🏦 GO Partage</h1>
 
-  <p>Ensemble, partageons nos cartes !</p>
+  <p class="brand-tagline">Ensemble, partageons nos cartes !</p>
 
 </header>
 
@@ -299,7 +318,7 @@
 
   <h2>Bienvenue sur GO Partage</h2>
 
-  <p>L'application pour s'entraider et partager ses cartes Monopoly GO.</p>
+  <p>L’application communautaire pour s’entraider et partager ses cartes.</p>
 
   <section class="panel" id="loginPanel">
 
@@ -332,7 +351,7 @@
 
       <button class="tile" id="myCardsButton">🃏<br>Mes cartes</button>
 
-      <button class="tile" id="myDonationsButton">🎁<br>Mes dons</button>
+      <button class="tile" id="myDonationsButton">🤝<br>Mes dons</button>
 
       <button class="tile" disabled>👤<br>Mon compte</button>
 
@@ -353,7 +372,7 @@
 
   <section class="panel" id="myDonationsPanel" hidden>
     <button class="small-button" id="backFromDonationsButton">← Retour</button>
-    <h2>🎁 Mes dons</h2>
+    <h2>🤝 Mes dons</h2>
     <p class="muted">Propose gratuitement tes cartes en double à la communauté.</p>
     <div id="myDonationsContent">Chargement de tes dons...</div>
   </section>
