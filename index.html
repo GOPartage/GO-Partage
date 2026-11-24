@@ -514,32 +514,8 @@
     }
   });
 
-  // Le bouton utilise exactement le même client Supabase que celui qui
-  // récupère la session au retour de Facebook (PKCE).
+  // La connexion Facebook est gérée par le script autonome en bas de page.
   const facebookButton = document.getElementById("facebookButton");
-  const loginStatus = document.getElementById("status");
-  if (facebookButton && loginStatus) {
-    facebookButton.addEventListener("click", async () => {
-      if (facebookButton.disabled) return;
-      facebookButton.disabled = true;
-      loginStatus.textContent = "Connexion à Facebook...";
-      try {
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: "facebook",
-          options: {
-            redirectTo: window.location.origin + window.location.pathname
-          }
-        });
-        if (error) throw error;
-      } catch (error) {
-        console.error("Erreur de connexion Facebook :", error);
-        loginStatus.textContent = "La connexion n'a pas pu démarrer : " +
-          (error?.message || "erreur inconnue") +
-          ". Vérifie ta connexion Internet puis réessaie.";
-        facebookButton.disabled = false;
-      }
-    });
-  }
 
   const loginPanel = document.getElementById("loginPanel");
 
@@ -2239,67 +2215,80 @@
 
 
 
-<!-- Traitement explicite du retour OAuth Facebook -->
-<script>
-(async function () {
-  const params = new URLSearchParams(window.location.search);
-  const code = params.get("code");
-  if (!code) return;
-  const status = document.getElementById("status");
-  if (status) status.textContent = "Finalisation de ta connexion...";
-  try {
-    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-    const authClient = createClient(
-      "https://emcmvflmdxiwzanxggmu.supabase.co",
-      "sb_publishable_DewNBprHDwNNxDm24c4_sQ_nqaFhXT_",
-      { auth: { flowType: "pkce", persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storage: window.localStorage } }
-    );
-    const { data, error } = await authClient.auth.exchangeCodeForSession(code);
-    if (error) throw error;
-    if (!data || !data.session) throw new Error("Facebook a répondu, mais aucune session n'a été créée.");
-    params.delete("code");
-    params.delete("state");
-    const cleanUrl = window.location.pathname + (params.toString() ? "?" + params.toString() : "") + window.location.hash;
-    window.location.replace(cleanUrl);
-  } catch (error) {
-    console.error("Finalisation OAuth GO Partage :", error);
-    if (status) status.textContent = "La connexion Facebook a été validée, mais GO Partage n'a pas pu ouvrir ta session : " + (error && error.message ? error.message : "erreur inconnue");
-  }
-})();
-</script>
-<!-- Secours du bouton si le module principal ne démarre pas -->
+<!-- Connexion Facebook et retour OAuth : gestion centralisée -->
 <script>
 (function () {
   const button = document.getElementById("facebookButton");
   const status = document.getElementById("status");
-  if (!button || !status) return;
-  button.addEventListener("click", async function (event) {
-    if (button.dataset.goPartageModuleReady === "1") return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    if (button.dataset.goPartageFallbackBusy === "1") return;
-    button.dataset.goPartageFallbackBusy = "1";
-    button.disabled = true;
-    status.textContent = "Connexion à Facebook...";
-    try {
-      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-      const client = createClient(
-        "https://emcmvflmdxiwzanxggmu.supabase.co",
-        "sb_publishable_DewNBprHDwNNxDm24c4_sQ_nqaFhXT_",
-        { auth: { flowType: "pkce", persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storage: window.localStorage } }
+  const SUPABASE_URL = "https://emcmvflmdxiwzanxggmu.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_DewNBprHDwNNxDm24c4_sQ_nqaFhXT_";
+  let clientPromise;
+
+  function getAuthClient() {
+    if (!clientPromise) {
+      clientPromise = import("https://esm.sh/@supabase/supabase-js@2").then(({ createClient }) =>
+        createClient(SUPABASE_URL, SUPABASE_KEY, {
+          auth: {
+            flowType: "pkce",
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: false,
+            storage: window.localStorage
+          }
+        })
       );
-      const { error } = await client.auth.signInWithOAuth({
-        provider: "facebook",
-        options: { redirectTo: window.location.origin + window.location.pathname }
-      });
-      if (error) throw error;
-    } catch (error) {
-      console.error("Secours connexion Facebook :", error);
-      status.textContent = "Impossible de démarrer la connexion : " + (error?.message || "erreur inconnue");
-      button.disabled = false;
-      button.dataset.goPartageFallbackBusy = "0";
     }
-  }, true);
+    return clientPromise;
+  }
+
+  async function finishFacebookLogin() {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    const oauthError = params.get("error_description") || params.get("error");
+    if (oauthError) throw new Error(oauthError);
+    if (!code) return;
+    if (status) status.textContent = "Finalisation de ta connexion...";
+    const client = await getAuthClient();
+    const { data, error } = await client.auth.exchangeCodeForSession(code);
+    if (error) throw error;
+    if (!data || !data.session) throw new Error("Aucune session n'a été créée après le retour de Facebook.");
+    params.delete("code");
+    params.delete("state");
+    const cleanUrl = window.location.pathname +
+      (params.toString() ? "?" + params.toString() : "") + window.location.hash;
+    window.history.replaceState({}, document.title, cleanUrl);
+    window.location.reload();
+  }
+
+  if (button && status) {
+    button.addEventListener("click", async function (event) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (button.disabled) return;
+      button.disabled = true;
+      status.textContent = "Connexion à Facebook...";
+      try {
+        const client = await getAuthClient();
+        const { error } = await client.auth.signInWithOAuth({
+          provider: "facebook",
+          options: { redirectTo: window.location.origin + window.location.pathname }
+        });
+        if (error) throw error;
+      } catch (error) {
+        console.error("Connexion Facebook GO Partage :", error);
+        status.textContent = "La connexion n'a pas pu démarrer : " +
+          (error && error.message ? error.message : "erreur inconnue");
+        button.disabled = false;
+      }
+    }, true);
+  }
+
+  finishFacebookLogin().catch(error => {
+    console.error("Retour Facebook GO Partage :", error);
+    if (status) status.textContent = "La connexion Facebook n'a pas pu être finalisée : " +
+      (error && error.message ? error.message : "erreur inconnue") +
+      ". Réessaie de te connecter.";
+  });
 })();
 </script>
 
