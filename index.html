@@ -1025,7 +1025,7 @@
     let communityBankReady = false;
     if (newestAlbum && newestAlbum.id === album.id && sets.length === 23) {
       const cardsBySet = new Map();
-      cards.forEach(card => cardsBySet.set(card.set_id, (cardsBySet.get(set.id) || 0) + 1));
+      cards.forEach(card => cardsBySet.set(card.set_id, (cardsBySet.get(card.set_id) || 0) + 1));
       communityBankReady = cards.length === 207 && sets.every(set => (cardsBySet.get(set.id) || 0) === 9);
     }
 
