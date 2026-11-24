@@ -1545,9 +1545,10 @@
     }
 
     const { data: albums, error: albumError } = await supabase
-      .from("albums").select("id, name, is_active").eq("is_active", true);
+      .from("albums").select("id, name, is_active").eq("is_active", true)
+      .order("created_at", { ascending: false }).limit(1);
     if (albumError) { myCardsContent.textContent = "Erreur albums : " + albumError.message; return; }
-    const album = albums.find(a => a.name === "Monster Mash");
+    const album = albums && albums[0];
     if (!album) { myCardsContent.textContent = "Aucun album actif trouvé."; return; }
 
     const { data: sets, error: setsError } = await supabase
