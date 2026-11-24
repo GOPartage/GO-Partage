@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1200" viewBox="0 0 1800 1200">
 <defs>
- <linearGradient id="sky" x2="1" y2="1"><stop stop-color="#ffd84d"/><stop offset=".28" stop-color="#fff0a6"/><stop offset=".58" stop-color="#83d4f4"/><stop offset=".82" stop-color="#f5a9ce"/><stop offset="1" stop-color="#ffd4df"/></linearGradient>
+ 
  <radialGradient id="sun"><stop stop-color="#fff3cf" stop-opacity=".8"/><stop offset="1" stop-color="#fff3cf" stop-opacity="0"/></radialGradient>
  <linearGradient id="limestone" x2=".8" y2="1"><stop stop-color="#fffbe8"/><stop offset=".18" stop-color="#ffe9ad"/><stop offset=".42" stop-color="#f4d18b"/><stop offset=".68" stop-color="#fff1c9"/><stop offset=".86" stop-color="#d9b879"/><stop offset="1" stop-color="#a9783f"/></linearGradient>
  <linearGradient id="stoneSide" x2="1" y2=".3"><stop stop-color="#9a7651"/><stop offset=".45" stop-color="#d1b28a"/><stop offset="1" stop-color="#806044"/></linearGradient>
@@ -16,7 +16,7 @@
  <pattern id="pavingLines" width="180" height="90" patternUnits="userSpaceOnUse"><path d="M0 0H180M0 45H180M90 0V45M30 45V90M150 45V90" stroke="#5d5145" stroke-opacity=".25" stroke-width="2" fill="none"/></pattern>
 </defs>
 <!-- ciel de fin d'après-midi et nuages lointains -->
-<rect width="1800" height="1200" fill="url(#sky)"/>
+<rect width="1800" height="1200" fill="#b9d8e8"/>
 <circle cx="1450" cy="190" r="470" fill="url(#sun)"/>
 <g fill="#f3ead9" opacity=".22">
  <path d="M0 250Q130 190 250 235T500 220T760 250V330H0Z"/>
@@ -108,6 +108,27 @@
  <g transform="translate(300 1010) rotate(25)" filter="url(#smallShadow)"><ellipse cx="0" cy="0" rx="24" ry="9" fill="url(#gold)" stroke="#a96608" stroke-width="4"/><ellipse cx="0" cy="-2" rx="17" ry="6" fill="none" stroke="#fff8c7" stroke-width="2"/></g>
  <g transform="translate(1500 1015) rotate(-24)" filter="url(#smallShadow)"><ellipse cx="0" cy="0" rx="25" ry="9" fill="url(#gold)" stroke="#a96608" stroke-width="4"/><ellipse cx="0" cy="-2" rx="18" ry="6" fill="none" stroke="#fff8c7" stroke-width="2"/></g>
 
+<!-- montagnes de pièces d'or brillantes sur les côtés -->
+<g filter="url(#shadow)" stroke="#8b570d" stroke-width="7">
+ <g transform="translate(35 1080)">
+  <g fill="url(#gold)">
+   <ellipse cx="70" cy="0" rx="78" ry="27"/><ellipse cx="165" cy="-5" rx="78" ry="27"/>
+   <ellipse cx="35" cy="-42" rx="68" ry="23"/><ellipse cx="115" cy="-48" rx="76" ry="26"/><ellipse cx="195" cy="-48" rx="68" ry="23"/>
+   <ellipse cx="75" cy="-88" rx="72" ry="25"/><ellipse cx="160" cy="-92" rx="72" ry="25"/>
+   <ellipse cx="120" cy="-132" rx="65" ry="22"/><ellipse cx="120" cy="-168" rx="54" ry="19"/>
+  </g>
+  <g fill="none" stroke="#fff8bf" stroke-width="5"><ellipse cx="70" cy="-4" rx="55" ry="15"/><ellipse cx="115" cy="-52" rx="52" ry="14"/><ellipse cx="160" cy="-96" rx="50" ry="14"/><ellipse cx="120" cy="-171" rx="40" ry="11"/></g>
+ </g>
+ <g transform="translate(1515 1080)">
+  <g fill="url(#gold)">
+   <ellipse cx="70" cy="0" rx="78" ry="27"/><ellipse cx="165" cy="-5" rx="78" ry="27"/>
+   <ellipse cx="35" cy="-42" rx="68" ry="23"/><ellipse cx="115" cy="-48" rx="76" ry="26"/><ellipse cx="195" cy="-48" rx="68" ry="23"/>
+   <ellipse cx="75" cy="-88" rx="72" ry="25"/><ellipse cx="160" cy="-92" rx="72" ry="25"/>
+   <ellipse cx="120" cy="-132" rx="65" ry="22"/><ellipse cx="120" cy="-168" rx="54" ry="19"/>
+  </g>
+  <g fill="none" stroke="#fff8bf" stroke-width="5"><ellipse cx="70" cy="-4" rx="55" ry="15"/><ellipse cx="115" cy="-52" rx="52" ry="14"/><ellipse cx="160" cy="-96" rx="50" ry="14"/><ellipse cx="120" cy="-171" rx="40" ry="11"/></g>
+ </g>
+</g>
 <!-- profondeur et vignettage photographique -->
 <rect width="1800" height="1200" fill="none" stroke="#0b2234" stroke-opacity=".22" stroke-width="90"/>
 <rect width="1800" height="1200" fill="#183247" opacity=".035"/>
