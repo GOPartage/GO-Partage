@@ -1150,6 +1150,49 @@
           myDonationsContent.appendChild(quota);
         }
 
+        const { data: myActiveRequests, error: myActiveRequestsError } = await supabase
+          .from("card_requests").select("id,card_id,created_at")
+          .eq("member_id", user.id).eq("status", "active").order("created_at", { ascending: false });
+        const myRequestsTitle = document.createElement("h3");
+        myRequestsTitle.textContent = "📨 Mes demandes envoyées";
+        myDonationsContent.appendChild(myRequestsTitle);
+        if (myActiveRequestsError) {
+          const requestError = document.createElement("p");
+          requestError.className = "muted";
+          requestError.textContent = "Impossible de charger tes demandes : " + myActiveRequestsError.message;
+          myDonationsContent.appendChild(requestError);
+        } else if (!myActiveRequests || !myActiveRequests.length) {
+          const noRequests = document.createElement("p");
+          noRequests.className = "muted";
+          noRequests.textContent = "Tu n’as aucune demande en attente.";
+          myDonationsContent.appendChild(noRequests);
+        } else {
+          myActiveRequests.forEach(request => {
+            const card = cardById.get(request.card_id);
+            if (!card) return;
+            const set = setById.get(card.set_id);
+            const requestItem = document.createElement("div");
+            requestItem.className = "set";
+            const requestName = document.createElement("strong");
+            requestName.textContent = (set ? (set.name_fr || set.name) + " · " : "") + "#" + card.card_number + " " + (card.name_fr || card.name);
+            const cancelRequest = document.createElement("button");
+            cancelRequest.className = "small-button";
+            cancelRequest.textContent = "Annuler ma demande";
+            cancelRequest.addEventListener("click", async () => {
+              cancelRequest.disabled = true;
+              const { error } = await supabase.rpc("cancel_card_request", { p_request_id: request.id });
+              if (error) {
+                cancelRequest.disabled = false;
+                cancelRequest.textContent = "Erreur : réessayer";
+                return;
+              }
+              await loadMyDonations();
+            });
+            requestItem.append(requestName, cancelRequest);
+            myDonationsContent.appendChild(requestItem);
+          });
+        }
+
         const { data: communityOffers, error: communityError } = await supabase
           .from("card_offers").select("id, member_id, card_id, quantity, created_at")
           .eq("status", "active").neq("member_id", user.id).order("created_at", { ascending: false });
@@ -1172,9 +1215,8 @@
             const { data: donorProfiles, error: donorProfilesError } = await supabase
               .from("profiles").select("id, display_name").in("id", donorIds);
             const donorNames = new Map((donorProfiles || []).map(p => [p.id, p.display_name || "Membre GO Partage"]));
-            const { data: myRequests, error: myRequestsError } = await supabase
-              .from("card_requests").select("id, card_id, status, created_at")
-              .eq("member_id", user.id).eq("status", "active");
+            const myRequests = myActiveRequests;
+            const myRequestsError = myActiveRequestsError;
             const requestedCards = new Set((myRequests || []).map(r => r.card_id));
             if (donorProfilesError || myRequestsError) {
               const msg = document.createElement("p");
