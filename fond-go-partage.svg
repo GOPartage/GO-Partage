@@ -1,22 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000">
 <defs>
- <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#182b43"/><stop offset=".55" stop-color="#304b60"/><stop offset="1" stop-color="#d8c8a7"/></linearGradient>
- <linearGradient id="gold" x2="0" y2="1"><stop stop-color="#f3d99a"/><stop offset="1" stop-color="#a87935"/></linearGradient>
- <linearGradient id="stone" x2="0" y2="1"><stop stop-color="#e9dfca"/><stop offset="1" stop-color="#b9a98d"/></linearGradient>
- <linearGradient id="note" x2="1" y2="1"><stop stop-color="#7fb69a"/><stop offset="1" stop-color="#315f50"/></linearGradient>
- <radialGradient id="veil"><stop stop-color="#f7f1e6" stop-opacity=".34"/><stop offset=".7" stop-color="#f7f1e6" stop-opacity=".16"/><stop offset="1" stop-color="#f7f1e6" stop-opacity=".02"/></radialGradient>
+ <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#123f70"/><stop offset=".48" stop-color="#287f9a"/><stop offset="1" stop-color="#e4c98e"/></linearGradient>
+ <linearGradient id="gold" x2="0" y2="1"><stop stop-color="#ffdf72"/><stop offset=".55" stop-color="#f0a52f"/><stop offset="1" stop-color="#bb4a32"/></linearGradient>
+ <linearGradient id="stone" x2="0" y2="1"><stop stop-color="#fff1d2"/><stop offset="1" stop-color="#d9c39c"/></linearGradient>
+ <linearGradient id="note" x2="1" y2="1"><stop stop-color="#9ad77e"/><stop offset="1" stop-color="#26734c"/></linearGradient>
+ <radialGradient id="veil"><stop stop-color="#f7f1e6" stop-opacity=".22"/><stop offset=".62" stop-color="#f7f1e6" stop-opacity=".10"/><stop offset="1" stop-color="#f7f1e6" stop-opacity=".01"/></radialGradient>
  <pattern id="grain" width="7" height="7" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".6" fill="#fff" opacity=".12"/></pattern>
 </defs>
 <rect width="1600" height="1000" fill="url(#sky)"/>
 <!-- bank facade -->
 <g opacity=".92">
- <path d="M170 310L800 80l630 230z" fill="url(#gold)" stroke="#7b5a31" stroke-width="8"/>
+ <path d="M170 310L800 80l630 230z" fill="#d94b3d" stroke="#f6c65b" stroke-width="9"/>
  <path d="M220 315H1380V670H220z" fill="url(#stone)" stroke="#7b5a31" stroke-width="8"/>
- <path d="M190 300H1410V340H190z" fill="#c49a56" stroke="#72512d" stroke-width="7"/>
- <g fill="#d6c8ad" stroke="#806b4c" stroke-width="8">
+ <path d="M190 300H1410V340H190z" fill="#f4c34e" stroke="#9c542e" stroke-width="7"/>
+ <g fill="#fff0d1" stroke="#8b6242" stroke-width="8">
   <path d="M300 365h115v270H300z"/><path d="M510 365h115v270H510z"/><path d="M720 365h160v270H720z"/><path d="M975 365h115v270H975z"/><path d="M1185 365h115v270h-115z"/>
  </g>
- <g fill="#263e50" opacity=".85">
+ <g fill="#1d527a" opacity=".92">
   <path d="M325 410q32-55 65 0v190h-65z"/><path d="M535 410q32-55 65 0v190h-65z"/><path d="M757 410q43-75 86 0v190h-86z"/><path d="M1000 410q32-55 65 0v190h-65z"/><path d="M1210 410q32-55 65 0v190h-65z"/>
  </g>
  <path d="M160 660H1440v38H160z" fill="#8f6c3e"/>
@@ -25,13 +25,13 @@
 <!-- soft transparent central wash for readable app panels -->
 <rect width="1600" height="1000" fill="url(#veil)"/>
 <!-- board path along bottom -->
-<g transform="translate(0 850)" opacity=".85">
- <rect x="0" y="0" width="1600" height="150" fill="#1e3547" opacity=".72"/>
+<g transform="translate(0 850)" opacity=".98">
+ <rect x="0" y="0" width="1600" height="150" fill="#163d69" opacity=".9"/>
  <path d="M0 12H1600M0 138H1600" stroke="#d8b66e" stroke-width="7"/>
- <g fill="#f3ead8" stroke="#a98243" stroke-width="5">
-  <rect x="30" y="30" width="150" height="90" rx="8"/><rect x="190" y="30" width="150" height="90" rx="8"/><rect x="350" y="30" width="150" height="90" rx="8"/><rect x="510" y="30" width="150" height="90" rx="8"/><rect x="670" y="30" width="150" height="90" rx="8"/><rect x="830" y="30" width="150" height="90" rx="8"/><rect x="990" y="30" width="150" height="90" rx="8"/><rect x="1150" y="30" width="150" height="90" rx="8"/><rect x="1310" y="30" width="150" height="90" rx="8"/>
+ <g stroke="#fff1cf" stroke-width="5">
+  <rect x="30" y="30" width="150" height="90" rx="8" fill="#e34e43"/><rect x="190" y="30" width="150" height="90" rx="8" fill="#f2bd3f"/><rect x="350" y="30" width="150" height="90" rx="8" fill="#4b9a65"/><rect x="510" y="30" width="150" height="90" rx="8" fill="#3979b8"/><rect x="670" y="30" width="150" height="90" rx="8" fill="#ef873b"/><rect x="830" y="30" width="150" height="90" rx="8" fill="#9b68aa"/><rect x="990" y="30" width="150" height="90" rx="8" fill="#e34e43"/><rect x="1150" y="30" width="150" height="90" rx="8" fill="#f2bd3f"/><rect x="1310" y="30" width="150" height="90" rx="8" fill="#4b9a65"/>
  </g>
- <g fill="#315f50"><rect x="42" y="39" width="126" height="14" rx="3"/><rect x="202" y="39" width="126" height="14" rx="3"/><rect x="362" y="39" width="126" height="14" rx="3"/><rect x="522" y="39" width="126" height="14" rx="3"/><rect x="682" y="39" width="126" height="14" rx="3"/><rect x="842" y="39" width="126" height="14" rx="3"/><rect x="1002" y="39" width="126" height="14" rx="3"/><rect x="1162" y="39" width="126" height="14" rx="3"/><rect x="1322" y="39" width="126" height="14" rx="3"/></g>
+ <g fill="#fff4df"><rect x="42" y="39" width="126" height="14" rx="3"/><rect x="202" y="39" width="126" height="14" rx="3"/><rect x="362" y="39" width="126" height="14" rx="3"/><rect x="522" y="39" width="126" height="14" rx="3"/><rect x="682" y="39" width="126" height="14" rx="3"/><rect x="842" y="39" width="126" height="14" rx="3"/><rect x="1002" y="39" width="126" height="14" rx="3"/><rect x="1162" y="39" width="126" height="14" rx="3"/><rect x="1322" y="39" width="126" height="14" rx="3"/></g>
 </g>
 <!-- banknotes and cards around the edges -->
 <g transform="translate(65 610) rotate(-13)" opacity=".95"><rect width="230" height="130" rx="13" fill="url(#note)" stroke="#e5ca83" stroke-width="7"/><rect x="14" y="14" width="202" height="102" rx="8" fill="none" stroke="#d8c28a" stroke-width="3"/><circle cx="115" cy="65" r="38" fill="none" stroke="#d8c28a" stroke-width="4"/><path d="M80 65h70M115 30v70" stroke="#d8c28a" stroke-width="3"/></g>
