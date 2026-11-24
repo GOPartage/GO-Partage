@@ -795,19 +795,19 @@
       reason.textContent = "Problème signalé : " + (dispute.dispute_reason || "Aucun détail fourni.");
       row.append(heading,details,reason);
       for (const choice of [
-        {value:"confirmed",label:"Confirmer le don"},
-        {value:"cancelled",label:"Annuler et rendre la carte au donneur"}
+        {value:"confirm",label:"Confirmer le don"},
+        {value:"cancel",label:"Annuler et rendre la carte au donneur"}
       ]) {
         const action = document.createElement("button");
         action.className = "small-button";
         action.textContent = choice.label;
         action.addEventListener("click", async () => {
-          const warning = choice.value === "confirmed"
+          const warning = choice.value === "confirm"
             ? "Confirmer que le don a bien été reçu et ajouter la carte au bénéficiaire ?"
             : "Annuler le transfert et rendre la carte au donneur ?";
           if (!confirm(warning)) return;
           action.disabled = true;
-          const {error: resolveError} = await supabase.rpc("resolve_donation_dispute", {
+          const {error: resolveError} = await supabase.rpc("admin_resolve_transfer_dispute", {
             p_transfer_id:dispute.id,p_resolution:choice.value
           });
           if (resolveError) {
@@ -1482,7 +1482,7 @@
             const reason = prompt("Explique le problème (au moins 10 caractères) :");
             if (!reason) return;
             report.disabled = true;
-            const { error } = await supabase.rpc("report_unreceived_transfer", {
+            const { error } = await supabase.rpc("report_card_transfer_dispute", {
               p_transfer_id: transfer.id, p_reason: reason
             });
             if (error) {
