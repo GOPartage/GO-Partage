@@ -1407,6 +1407,7 @@
             }
             info.textContent = "Don préparé ! Le bénéficiaire devra confirmer la réception.";
             send.textContent = "Don envoyé";
+            await loadMyDonations();
           });
           item.append(name, detail, send, info);
           myDonationsContent.appendChild(item);
