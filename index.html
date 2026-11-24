@@ -31,33 +31,59 @@
 
     }
 
-    header {
-      background: transparent;
-      color: white;
-      padding: 28px 15px 18px;
+    header.hero-header {
+      display:flex;
+      justify-content:center;
+      padding:30px 15px 10px;
+      background:transparent;
+    }
+
+    .hero-copy {
+      width:min(760px, calc(100% - 24px));
+      padding:22px 24px 20px;
+      border:1px solid rgba(255,245,205,.82);
+      border-radius:22px;
+      background:linear-gradient(145deg, rgba(10,35,67,.88), rgba(20,78,112,.78) 55%, rgba(79,45,100,.78));
+      box-shadow:0 18px 42px rgba(8,24,44,.42), inset 0 1px 0 rgba(255,255,255,.28), inset 0 -8px 20px rgba(4,20,42,.25);
+      backdrop-filter:blur(8px);
+      color:#fffdf5;
     }
 
     .brand-title {
-      display: inline-block;
-      margin: 0;
-      padding: 12px 30px;
-      border-radius: 10px;
-      background: linear-gradient(135deg, #173f78, #245da0);
-      border: 3px solid #f2c45e;
-      box-shadow: 0 5px 0 #102c52, 0 8px 18px #142b4770;
+      display:inline-block;
+      margin:0;
+      padding:0;
+      border:0;
+      background:transparent;
+      box-shadow:none;
       color: #fffdf5;
       font-size: clamp(30px, 6vw, 44px);
       letter-spacing: .5px;
       text-shadow: 0 2px 2px #102c52;
     }
 
+    .hero-welcome {
+      margin:12px 0 2px;
+      color:#fffdf5;
+      font-size:clamp(22px,4vw,30px);
+      text-shadow:0 3px 10px #061b31;
+    }
+
     .brand-tagline {
-      margin: 13px 0 0;
-      color: #fffdf5;
-      font-style: italic;
-      font-size: 17px;
-      font-weight: 600;
-      text-shadow: 0 2px 5px #17283dcc;
+      margin:5px 0 8px;
+      color:#ffe18a;
+      font-style:italic;
+      font-size:clamp(18px,3vw,22px);
+      font-weight:700;
+      text-shadow:0 2px 8px #061b31;
+    }
+
+    .hero-description {
+      margin:0;
+      color:#f5f8ff;
+      font-size:15px;
+      line-height:1.55;
+      text-shadow:0 2px 6px #061b31;
     }
 
     main {
@@ -288,6 +314,9 @@
 
     @media (max-width: 450px) {
 
+      .hero-copy { padding:18px 14px 16px; border-radius:17px; }
+      .brand-title { font-size:32px; }
+      .hero-description { font-size:14px; }
       .cards {
 
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -306,19 +335,16 @@
 
 <body>
 
-<header>
-
-  <h1 class="brand-title">🏦 GO Partage</h1>
-
-  <p class="brand-tagline">Ensemble, partageons nos cartes !</p>
-
+<header class="hero-header">
+  <div class="hero-copy">
+    <h1 class="brand-title">GO Partage</h1>
+    <h2 class="hero-welcome">Bienvenue sur GO Partage</h2>
+    <p class="brand-tagline">Ensemble, partageons nos cartes !</p>
+    <p class="hero-description">L’application communautaire pour s’entraider et partager ses cartes.</p>
+  </div>
 </header>
 
 <main>
-
-  <h2>Bienvenue sur GO Partage</h2>
-
-  <p>L’application communautaire pour s’entraider et partager ses cartes.</p>
 
   <section class="panel" id="loginPanel">
 
