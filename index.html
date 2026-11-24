@@ -980,6 +980,22 @@
     offers.forEach(o => reserved.set(o.card_id, (reserved.get(o.card_id) || 0) + o.quantity));
     const setById = new Map(sets.map(s => [s.id, s]));
     const cardById = new Map(cards.map(card => [card.id, card]));
+    const activeCardIds = new Set(cards.map(card => card.id));
+    async function ensureDonationCardDetails(cardIds) {
+      const missingIds = [...new Set(cardIds)].filter(id => !cardById.has(id));
+      if (!missingIds.length) return;
+      const {data: extraCards} = await supabase.from("cards")
+        .select("id,set_id,card_number,name,name_fr,is_tradable_now").in("id",missingIds);
+      (extraCards || []).forEach(card => cardById.set(card.id,card));
+      const missingSetIds = [...new Set((extraCards || []).map(card => card.set_id))]
+        .filter(id => !setById.has(id));
+      if (missingSetIds.length) {
+        const {data: extraSets} = await supabase.from("card_sets")
+          .select("id,name,name_fr,sort_order").in("id",missingSetIds);
+        (extraSets || []).forEach(set => setById.set(set.id,set));
+      }
+    }
+    await ensureDonationCardDetails(offers.map(offer => offer.card_id));
     myDonationsContent.replaceChildren();
 
     const form = document.createElement("div");
@@ -1228,6 +1244,7 @@
         const { data: myActiveRequests, error: myActiveRequestsError } = await supabase
           .from("card_requests").select("id,card_id,created_at")
           .eq("member_id", user.id).eq("status", "active").order("created_at", { ascending: false });
+        await ensureDonationCardDetails((myActiveRequests || []).map(request => request.card_id));
         const myRequestsTitle = document.createElement("h3");
         myRequestsTitle.textContent = "📨 Mes demandes envoyées";
         myDonationsContent.appendChild(myRequestsTitle);
@@ -1278,7 +1295,7 @@
           myDonationsContent.appendChild(msg);
         } else {
           const missingOnlyOffers = (communityOffers || []).filter(offer =>
-            cardById.has(offer.card_id) && (quantities.get(offer.card_id) || 0) === 0
+            activeCardIds.has(offer.card_id) && (quantities.get(offer.card_id) || 0) === 0
           );
           if (!missingOnlyOffers.length) {
             const empty = document.createElement("p");
@@ -1439,6 +1456,7 @@
       empty.textContent = "Aucun don en attente de confirmation.";
       myDonationsContent.appendChild(empty);
     } else {
+      await ensureDonationCardDetails(pendingTransfers.map(transfer => transfer.card_id));
       const donorIds = [...new Set(pendingTransfers.map(t => t.donor_id))];
       const { data: donorRows } = await supabase
         .from("profiles").select("id, display_name").in("id", donorIds);
@@ -1531,6 +1549,7 @@
       sentEmpty.textContent = "Aucun don envoyé en attente.";
       myDonationsContent.appendChild(sentEmpty);
     } else {
+      await ensureDonationCardDetails(sentTransfers.map(transfer => transfer.card_id));
       const recipientIds = [...new Set(sentTransfers.map(t => t.recipient_id))];
       const { data: recipients } = await supabase.from("profiles").select("id,display_name").in("id", recipientIds);
       const recipientNames = new Map((recipients || []).map(p => [p.id,p.display_name || "Membre GO Partage"]));
