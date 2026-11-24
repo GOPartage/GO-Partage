@@ -2020,7 +2020,7 @@
       importBox.appendChild(importStatus);
       scanButton.addEventListener("click", async () => {
         if (!importImages.length || importBusy) return;
-        importBusy = true; importError = ""; importText = ""; importMatches = new Set(); importChecked = new Set(); render();
+        importBusy = true; importError = ""; importText = ""; importMatches = new Set(); importChecked = new Set(); importQuantities = new Map(); render();
         let worker = null;
         try {
           const Tesseract = await import("https://cdn.jsdelivr.net/npm/tesseract.js@5/+esm");
@@ -2160,8 +2160,24 @@
           const textLabel = document.createElement("span");
           textLabel.textContent = (setName ? (setName.name_fr || setName.name) + " · " : "") +
             "#" + card.card_number + " — " + (card.name_fr || card.name) +
-            (importMatches.has(card.id) ? " ✓ reconnue · " + (importQuantities.get(card.id) || 0) + " double(s)" : "");
+            (importMatches.has(card.id) ? " ✓ reconnue" : "");
           label.append(checkbox, textLabel); choices.appendChild(label);
+          if (importMatches.has(card.id)) {
+            const countLabel = document.createElement("label");
+            countLabel.className = "import-count";
+            countLabel.textContent = "Doubles : ";
+            const countInput = document.createElement("input");
+            countInput.type = "number"; countInput.min = "0"; countInput.max = "99";
+            countInput.step = "1"; countInput.value = String(importQuantities.get(card.id) || 0);
+            countInput.style.width = "64px";
+            countInput.addEventListener("change", () => {
+              const value = Math.max(0, Math.min(99, Number(countInput.value) || 0));
+              countInput.value = String(value);
+              importQuantities.set(card.id, value);
+            });
+            countLabel.appendChild(countInput);
+            choices.appendChild(countLabel);
+          }
         });
         importBox.appendChild(choices);
         const saveImport = document.createElement("button");
