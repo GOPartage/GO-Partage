@@ -310,7 +310,6 @@
 
     <div class="tiles">
 
-      <button class="tile" id="albumsButton">📚<br>Mes albums</button>
 
       <button class="tile" id="myCardsButton">🃏<br>Mes cartes</button>
 
@@ -328,21 +327,7 @@
 
   </section>
 
-  <section class="panel" id="albumsPanel" hidden>
-
-    <button class="small-button" id="backButton">← Retour</button>
-
-    <h2>📚 Mes albums</h2>
-
-    <div id="albumContent">
-
-      Chargement des albums...
-
-    </div>
-
-  </section>
-
-  <section class="panel" id="myCardsPanel" hidden>
+<section class="panel" id="myCardsPanel" hidden>
     <button class="small-button" id="backFromCardsButton">← Retour</button>
     <h2>🃏 Mes cartes</h2>
     <p class="muted">Indique combien d’exemplaires tu possèdes. 0 = carte manquante.</p>
@@ -372,8 +357,6 @@
   const accountPanel = document.getElementById("accountPanel");
 
   const dashboard = document.getElementById("dashboard");
-
-  const albumsPanel = document.getElementById("albumsPanel");
   const myCardsPanel = document.getElementById("myCardsPanel");
   const myCardsContent = document.getElementById("myCardsContent");
 
@@ -404,8 +387,6 @@
       accountPanel.hidden = true;
 
       dashboard.hidden = true;
-
-      albumsPanel.hidden = true;
       myCardsPanel.hidden = true;
 
     }
@@ -456,17 +437,7 @@
 
   });
 
-  // AFFICHER LES ALBUMS
 
-  document.getElementById("albumsButton").addEventListener("click", async () => {
-
-    dashboard.hidden = true;
-
-    albumsPanel.hidden = false;
-
-    await loadAlbums();
-
-  });
 
   document.getElementById("myCardsButton").addEventListener("click", async () => {
     dashboard.hidden = true;
@@ -479,201 +450,7 @@
     dashboard.hidden = false;
   });
 
-  // RETOUR À L'ACCUEIL
 
-  document.getElementById("backButton").addEventListener("click", () => {
-
-    albumsPanel.hidden = true;
-
-    dashboard.hidden = false;
-
-  });
-
-  // CHARGEMENT DES DONNÉES DE SUPABASE
-
-  async function loadAlbums() {
-
-    albumContent.textContent = "Chargement de l'album Monster Mash...";
-
-    const { data: albums, error: albumError } = await supabase
-
-      .from("albums")
-
-      .select("id, name, season, is_active")
-
-      .eq("is_active", true);
-
-    if (albumError) {
-
-      albumContent.textContent =
-
-        "Impossible de charger les albums : " + albumError.message;
-
-      return;
-
-    }
-
-    const album = albums.find(a => a.name === "Monster Mash");
-
-    if (!album) {
-
-      albumContent.textContent = "Album Monster Mash introuvable.";
-
-      return;
-
-    }
-
-    const { data: sets, error: setsError } = await supabase
-
-      .from("card_sets")
-
-      .select("id, name, name_fr, sort_order")
-    
-
-      .eq("album_id", album.id)
-
-      .order("sort_order", { ascending: true });
-
-    if (setsError) {
-
-      albumContent.textContent =
-
-        "Erreur lors du chargement des collections : " + setsError.message;
-
-      return;
-
-    }
-
-    if (!sets || sets.length === 0) {
-
-      albumContent.textContent = "Aucune collection trouvée.";
-
-      return;
-
-    }
-
-    const setIds = sets.map(s => s.id);
-
-    const { data: cards, error: cardsError } = await supabase
-
-      .from("cards")
-
-.select("id, set_id, card_number, name, name_fr, rarity, is_gold")
-      .in("set_id", setIds)
-
-      .eq("is_approved", true)
-
-      .order("card_number", { ascending: true });
-
-    if (cardsError) {
-
-      albumContent.textContent =
-
-        "Erreur lors du chargement des cartes : " + cardsError.message;
-
-      return;
-
-    }
-
-    // EN-TÊTE DE L'ALBUM
-
-    albumContent.replaceChildren();
-
-    const title = document.createElement("h2");
-
-    title.textContent = "👻 " + album.name;
-
-    albumContent.appendChild(title);
-
-    const info = document.createElement("p");
-
-    info.className = "muted";
-
-    info.textContent =
-
-      sets.length + " collections • " + cards.length + " cartes";
-
-    albumContent.appendChild(info);
-
-    // AFFICHAGE DES COLLECTIONS
-
-    sets.forEach(set => {
-
-      const setCards = cards.filter(card => card.set_id === set.id);
-
-      const section = document.createElement("div");
-
-      section.className = "set";
-
-      const heading = document.createElement("h3");
-
-      heading.textContent = set.sort_order + ". " + (set.name_fr || set.name);
-
-      section.appendChild(heading);
-
-      const setInfo = document.createElement("div");
-
-      setInfo.className = "set-info";
-
-      setInfo.textContent = setCards.length + " / 9 cartes";
-
-      section.appendChild(setInfo);
-
-      const cardsContainer = document.createElement("div");
-
-      cardsContainer.className = "cards";
-
-      setCards.forEach(card => {
-
-        const item = document.createElement("div");
-
-        item.className = "card-item";
-
-        const number = document.createElement("span");
-
-        number.className = "card-number";
-
-        number.textContent = "#" + card.card_number;
-
-        item.appendChild(number);
-
-        const name = document.createElement("span");
-
-        name.textContent = card.name_fr || card.name;
-
-        item.appendChild(name);
-
-        const rarity = document.createElement("span");
-
-        rarity.className = "muted";
-
-        rarity.textContent = card.rarity || "";
-
-        item.appendChild(rarity);
-
-        if (card.is_gold) {
-
-          const gold = document.createElement("span");
-
-          gold.className = "gold";
-
-          gold.textContent = "⭐ Dorée";
-
-          item.appendChild(gold);
-
-        }
-
-        cardsContainer.appendChild(item);
-
-      });
-
-      section.appendChild(cardsContainer);
-
-      albumContent.appendChild(section);
-
-    });
-
-  }
 
   // MES CARTES : inventaire personnel et quantités de doublons
   async function loadMyCards() {
