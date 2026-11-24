@@ -246,6 +246,14 @@
     .filter-buttons { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; }
     .filter-buttons button { margin:0; padding:8px 12px; font-size:13px; }
 
+
+    .import-box { background:#fffaf2; border:1px solid #e4d2b8; border-radius:12px; padding:14px; margin:14px 0; text-align:left; }
+    .import-box input[type="file"] { max-width:100%; margin:10px 0; }
+    .import-preview { display:block; max-width:100%; max-height:260px; object-fit:contain; margin:10px auto; border-radius:8px; }
+    .import-choice { display:flex; align-items:center; gap:9px; padding:8px; background:white; border-radius:7px; margin:5px 0; font-size:14px; }
+    .import-choice input { width:18px; height:18px; }
+    .import-status { white-space:pre-wrap; font-size:13px; color:#78695d; margin:8px 0; }
+
     [hidden] {
 
       display: none !important;
@@ -484,6 +492,16 @@
     if (ownedError) { myCardsContent.textContent = "Erreur de chargement de ton inventaire : " + ownedError.message; return; }
     const quantities = new Map(ownedRows.map(row => [row.card_id, row.quantity]));
     let filter = "all";
+    let importImage = null;
+    let importText = "";
+    let importMatches = new Set();
+    let importChecked = new Set();
+    let importBusy = false;
+
+    function normalizeForMatch(value) {
+      return String(value || "").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "")
+        .toLowerCase().replace(/[^a-z0-9]/g, "");
+    }
 
     function render() {
       myCardsContent.replaceChildren();
@@ -527,6 +545,110 @@
       const current = visibleSets[window.goPartageSetPage];
       const set = current.set;
       const setCards = current.cards;
+
+      const importBox = document.createElement("div");
+      importBox.className = "import-box";
+      const importTitle = document.createElement("h3");
+      importTitle.textContent = "📷 Importer une capture d’écran";
+      importBox.appendChild(importTitle);
+      const importHelp = document.createElement("p");
+      importHelp.className = "muted";
+      importHelp.textContent = "Choisis une capture de cette page de 9 cartes. La reconnaissance propose les cartes possédées, puis tu vérifies avant l’enregistrement.";
+      importBox.appendChild(importHelp);
+      const fileInput = document.createElement("input");
+      fileInput.type = "file"; fileInput.accept = "image/*";
+      fileInput.addEventListener("change", () => {
+        importImage = fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+        importText = ""; importMatches = new Set(); importChecked = new Set();
+        render();
+      });
+      importBox.appendChild(fileInput);
+      if (importImage) {
+        const preview = document.createElement("img");
+        preview.className = "import-preview";
+        preview.alt = "Aperçu de la capture sélectionnée";
+        preview.src = URL.createObjectURL(importImage);
+        importBox.appendChild(preview);
+      }
+      const scanButton = document.createElement("button");
+      scanButton.className = "small-button";
+      scanButton.textContent = importBusy ? "Analyse en cours..." : "Analyser la capture";
+      scanButton.disabled = !importImage || importBusy;
+      const importStatus = document.createElement("p");
+      importStatus.className = "import-status";
+      importStatus.textContent = importText ? "Analyse terminée. Vérifie les cases ci-dessous." : "L’analyse peut prendre quelques instants selon ton appareil.";
+      scanButton.addEventListener("click", async () => {
+        if (!importImage || importBusy) return;
+        importBusy = true; render();
+        try {
+          const Tesseract = await import("https://cdn.jsdelivr.net/npm/tesseract.js@5/+esm");
+          const worker = await Tesseract.createWorker("eng+fra");
+          const result = await worker.recognize(importImage);
+          await worker.terminate();
+          importText = result.data.text || "";
+          const normalizedText = normalizeForMatch(importText);
+          importMatches = new Set();
+          setCards.forEach(card => {
+            const names = [card.name, card.name_fr].filter(Boolean);
+            if (names.some(name => {
+              const n = normalizeForMatch(name);
+              return n.length >= 4 && normalizedText.includes(n);
+            })) importMatches.add(card.id);
+          });
+          importChecked = new Set(importMatches);
+        } catch (e) {
+          importText = "";
+          alert("La reconnaissance n’a pas fonctionné. Tu peux tout de même cocher les cartes manuellement.");
+        }
+        importBusy = false; render();
+      });
+      importBox.appendChild(scanButton);
+      if (importText) {
+        const resultLabel = document.createElement("p");
+        resultLabel.className = "import-status";
+        resultLabel.textContent = importMatches.size + " carte(s) reconnue(s) sur cette page. Coche ou décoche pour corriger.";
+        importBox.appendChild(resultLabel);
+        const choices = document.createElement("div");
+        setCards.forEach(card => {
+          const label = document.createElement("label"); label.className = "import-choice";
+          const checkbox = document.createElement("input"); checkbox.type = "checkbox";
+          checkbox.checked = importChecked.has(card.id);
+          checkbox.addEventListener("change", () => {
+            if (checkbox.checked) importChecked.add(card.id); else importChecked.delete(card.id);
+          });
+          const textLabel = document.createElement("span");
+          textLabel.textContent = "#" + card.card_number + " — " + (card.name_fr || card.name) +
+            (importMatches.has(card.id) ? " ✓ reconnue" : "");
+          label.append(checkbox, textLabel); choices.appendChild(label);
+        });
+        importBox.appendChild(choices);
+        const saveImport = document.createElement("button");
+        saveImport.className = "small-button";
+        saveImport.textContent = "Enregistrer les cartes cochées";
+        saveImport.addEventListener("click", async () => {
+          const selected = setCards.filter(card => importChecked.has(card.id) && (quantities.get(card.id) || 0) === 0);
+          if (!selected.length) { alert("Aucune nouvelle carte à ajouter."); return; }
+          saveImport.disabled = true; saveImport.textContent = "Enregistrement...";
+          for (const card of selected) {
+            const { error } = await supabase.from("member_cards").upsert(
+              { member_id: user.id, card_id: card.id, quantity: 1, updated_at: new Date().toISOString() },
+              { onConflict: "member_id,card_id" }
+            );
+            if (error) {
+              alert("Erreur pendant l’enregistrement : " + error.message);
+              saveImport.disabled = false; saveImport.textContent = "Réessayer l’enregistrement";
+              return;
+            }
+            quantities.set(card.id, 1);
+          }
+          importImage = null; importText = ""; importMatches = new Set(); importChecked = new Set();
+          alert(selected.length + " carte(s) ajoutée(s) à Mes cartes.");
+          render();
+        });
+        importBox.appendChild(saveImport);
+      }
+      myCardsContent.appendChild(importBox);
+
       {
         const section = document.createElement("div"); section.className = "set";
         const heading = document.createElement("h3"); heading.textContent = set.sort_order + ". " + (set.name_fr || set.name);
