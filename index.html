@@ -496,12 +496,13 @@
     let filter = "all";
     let importImage = null;
     let importText = "";
+    let importError = "";
     let importMatches = new Set();
     let importChecked = new Set();
     let importBusy = false;
 
     function normalizeForMatch(value) {
-      return String(value || "").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "")
+      return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
         .toLowerCase().replace(/[^a-z0-9]/g, "");
     }
 
@@ -561,7 +562,7 @@
       fileInput.type = "file"; fileInput.accept = "image/*";
       fileInput.addEventListener("change", () => {
         importImage = fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
-        importText = ""; importMatches = new Set(); importChecked = new Set();
+        importText = ""; importError = ""; importMatches = new Set(); importChecked = new Set();
         render();
       });
       importBox.appendChild(fileInput);
@@ -578,13 +579,14 @@
       scanButton.disabled = !importImage || importBusy;
       const importStatus = document.createElement("p");
       importStatus.className = "import-status";
-      importStatus.textContent = importText ? "Analyse terminée. Vérifie les cases ci-dessous." : "L’analyse peut prendre quelques instants selon ton appareil.";
+      importStatus.textContent = importBusy ? "Lecture de la capture en cours..." : importError ? "Erreur de reconnaissance : " + importError : importText ? "Texte détecté : " + importText.slice(0, 500) : "L’analyse peut prendre quelques instants selon ton appareil.";
+      importBox.appendChild(importStatus);
       scanButton.addEventListener("click", async () => {
         if (!importImage || importBusy) return;
-        importBusy = true; render();
+        importBusy = true; importError = ""; render();
         try {
           const Tesseract = await import("https://cdn.jsdelivr.net/npm/tesseract.js@5/+esm");
-          const worker = await Tesseract.createWorker("eng+fra");
+          const worker = await Tesseract.createWorker("eng");
           const result = await worker.recognize(importImage);
           await worker.terminate();
           importText = result.data.text || "";
@@ -599,13 +601,13 @@
           });
           importChecked = new Set(importMatches);
         } catch (e) {
+          importError = e && e.message ? e.message : String(e);
           importText = "";
-          alert("La reconnaissance n’a pas fonctionné. Tu peux tout de même cocher les cartes manuellement.");
         }
         importBusy = false; render();
       });
       importBox.appendChild(scanButton);
-      if (importText) {
+      if (importText || importError) {
         const resultLabel = document.createElement("p");
         resultLabel.className = "import-status";
         resultLabel.textContent = importMatches.size + " carte(s) reconnue(s) sur cette page. Coche ou décoche pour corriger.";
@@ -643,7 +645,7 @@
             }
             quantities.set(card.id, 1);
           }
-          importImage = null; importText = ""; importMatches = new Set(); importChecked = new Set();
+          importImage = null; importText = ""; importError = ""; importMatches = new Set(); importChecked = new Set();
           alert(selected.length + " carte(s) ajoutée(s) à Mes cartes.");
           render();
         });
