@@ -256,9 +256,13 @@
 
       .cards {
 
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 5px;
 
       }
+      .card-item { padding: 8px 3px; font-size: 11px; }
+      .quantity-controls { gap: 4px; }
+      .quantity-controls button { padding: 5px 7px; }
 
     }
 
@@ -503,12 +507,29 @@
       });
       myCardsContent.appendChild(filters);
 
-      sets.forEach(set => {
-        const setCards = cards.filter(card => card.set_id === set.id).filter(card => {
+      const visibleSets = sets.map(set => ({
+        set,
+        cards: cards.filter(card => card.set_id === set.id).filter(card => {
           const q = quantities.get(card.id) || 0;
           return filter === "all" || (filter === "missing" && q === 0) || (filter === "duplicates" && q > 1);
-        });
-        if (!setCards.length) return;
+        })
+      })).filter(entry => entry.cards.length);
+      if (!visibleSets.length) {
+        const empty = document.createElement("p"); empty.className = "muted"; empty.textContent = "Aucune carte dans cette catégorie."; myCardsContent.appendChild(empty); return;
+      }
+      if (typeof window.goPartageSetPage !== "number") window.goPartageSetPage = 0;
+      window.goPartageSetPage = Math.min(window.goPartageSetPage, visibleSets.length - 1);
+      const navigation = document.createElement("div"); navigation.className = "filter-buttons";
+      const previous = document.createElement("button"); previous.className = "small-button"; previous.textContent = "← Page précédente"; previous.disabled = window.goPartageSetPage === 0;
+      previous.addEventListener("click", () => { window.goPartageSetPage--; render(); });
+      const pageLabel = document.createElement("span"); pageLabel.className = "muted"; pageLabel.textContent = "Page " + (window.goPartageSetPage + 1) + " / " + visibleSets.length;
+      const next = document.createElement("button"); next.className = "small-button"; next.textContent = "Page suivante →"; next.disabled = window.goPartageSetPage >= visibleSets.length - 1;
+      next.addEventListener("click", () => { window.goPartageSetPage++; render(); });
+      navigation.append(previous, pageLabel, next); myCardsContent.appendChild(navigation);
+      const current = visibleSets[window.goPartageSetPage];
+      const set = current.set;
+      const setCards = current.cards;
+      {
         const section = document.createElement("div"); section.className = "set";
         const heading = document.createElement("h3"); heading.textContent = set.sort_order + ". " + (set.name_fr || set.name);
         section.appendChild(heading);
@@ -537,9 +558,6 @@
           controls.append(minus, value, plus); item.appendChild(controls); container.appendChild(item);
         });
         section.appendChild(container); myCardsContent.appendChild(section);
-      });
-      if (filter !== "all" && !myCardsContent.querySelector(".set")) {
-        const empty = document.createElement("p"); empty.className = "muted"; empty.textContent = "Aucune carte dans cette catégorie."; myCardsContent.appendChild(empty);
       }
     }
     render();
