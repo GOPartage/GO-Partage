@@ -1848,7 +1848,7 @@
           }
           importText = textParts.join("\n");
           const normalizedText = normalizeForMatch(importText);
-          const ocrWords = normalizedText.match(/[a-z0-9]{3,}/g) || [];
+          const ocrWords = String(importText).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().match(/[a-z0-9]{3,}/g) || [];
           const distance = (a, b) => {
             const row = Array.from({length:b.length + 1}, (_,i) => i);
             for (let i = 1; i <= a.length; i++) {
