@@ -1475,6 +1475,20 @@
             confirm.textContent = "Réception confirmée";
             await loadMyDonations();
           });
+          const cancelTransfer = document.createElement("button");
+          cancelTransfer.className = "small-button";
+          cancelTransfer.textContent = "Annuler le transfert";
+          cancelTransfer.addEventListener("click", async () => {
+            if (!confirm("Annuler ce transfert ? La carte retournera au donneur et la demande sera remise en attente.")) return;
+            cancelTransfer.disabled = true;
+            const { error } = await supabase.rpc("cancel_card_transfer", { p_transfer_id: transfer.id });
+            if (error) {
+              cancelTransfer.disabled = false;
+              info.textContent = "Annulation impossible : " + error.message;
+              return;
+            }
+            await loadMyDonations();
+          });
           const report = document.createElement("button");
           report.className = "small-button";
           report.textContent = "Signaler un problème";
@@ -1492,7 +1506,7 @@
             }
             await loadMyDonations();
           });
-          item.append(name, detail, confirm, report, info);
+          item.append(name, detail, confirm, cancelTransfer, report, info);
         }
         myDonationsContent.appendChild(item);
       });
@@ -1530,6 +1544,23 @@
         state.textContent = "Destinataire : " + (recipientNames.get(transfer.recipient_id) || "Membre") +
           (transfer.status === "disputed" ? " · Litige : " + (transfer.dispute_reason || "En examen") : " · En attente de confirmation");
         row.append(label,state);
+        if (transfer.status === "awaiting_recipient") {
+          const cancelSent = document.createElement("button");
+          cancelSent.className = "small-button";
+          cancelSent.textContent = "Annuler le transfert";
+          cancelSent.addEventListener("click", async () => {
+            if (!confirm("Annuler ce don ? La carte retournera dans ta collection.")) return;
+            cancelSent.disabled = true;
+            const { error } = await supabase.rpc("cancel_card_transfer", { p_transfer_id: transfer.id });
+            if (error) {
+              cancelSent.disabled = false;
+              state.textContent = "Annulation impossible : " + error.message;
+              return;
+            }
+            await loadMyDonations();
+          });
+          row.appendChild(cancelSent);
+        }
         myDonationsContent.appendChild(row);
       });
     }
