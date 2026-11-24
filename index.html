@@ -2224,6 +2224,7 @@
   }
   displaySession(session);
   if (session) await loadAdminAccess(session.user.id);
+  if (facebookButton) facebookButton.dataset.goPartageModuleReady = "1";
 
   // Installation de GO Partage comme application sur le téléphone
   if ("serviceWorker" in navigator) {
@@ -2266,6 +2267,42 @@
   }
 })();
 </script>
+<!-- Secours du bouton si le module principal ne démarre pas -->
+<script>
+(function () {
+  const button = document.getElementById("facebookButton");
+  const status = document.getElementById("status");
+  if (!button || !status) return;
+  button.addEventListener("click", async function (event) {
+    if (button.dataset.goPartageModuleReady === "1") return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (button.dataset.goPartageFallbackBusy === "1") return;
+    button.dataset.goPartageFallbackBusy = "1";
+    button.disabled = true;
+    status.textContent = "Connexion à Facebook...";
+    try {
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+      const client = createClient(
+        "https://emcmvflmdxiwzanxggmu.supabase.co",
+        "sb_publishable_DewNBprHDwNNxDm24c4_sQ_nqaFhXT_",
+        { auth: { flowType: "pkce", persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storage: window.localStorage } }
+      );
+      const { error } = await client.auth.signInWithOAuth({
+        provider: "facebook",
+        options: { redirectTo: window.location.origin + window.location.pathname }
+      });
+      if (error) throw error;
+    } catch (error) {
+      console.error("Secours connexion Facebook :", error);
+      status.textContent = "Impossible de démarrer la connexion : " + (error?.message || "erreur inconnue");
+      button.disabled = false;
+      button.dataset.goPartageFallbackBusy = "0";
+    }
+  }, true);
+})();
+</script>
+
 
 </body>
 
