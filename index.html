@@ -2092,7 +2092,7 @@
                   nameCtx.imageSmoothingEnabled = true;
                   nameCtx.imageSmoothingQuality = "high";
                   nameCtx.drawImage(source,sx,sy,sw,sh,0,0,nameCanvas.width,nameCanvas.height);
-                  await worker.setParameters({ tessedit_pageseg_mode: "7", preserve_interword_spaces: "1" });
+                  await worker.setParameters({ tessedit_pageseg_mode: "7", preserve_interword_spaces: "1", tessedit_char_whitelist: "" });
                   const nameResult = await worker.recognize(nameCanvas);
                   let nameText = (nameResult.data.text || "").trim();
                   // Deuxième lecture contrastée pour les lettres blanches sur fond brun.
