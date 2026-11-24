@@ -2141,16 +2141,17 @@
                   importMatches.add(matchedCard.id);
                   importChecked.add(matchedCard.id);
                   const countCanvas = document.createElement("canvas");
-                  const cx = Math.round(bitmap.width * nameXs[col]);
+                  // On isole le chiffre à droite du signe + pour éviter de lire le + comme un 4.
+                  const cx = Math.round(bitmap.width * (nameXs[col] + 0.035));
                   const cy = Math.round(bitmap.height * countTop[row]);
-                  const cw = Math.round(bitmap.width * 0.09);
+                  const cw = Math.round(bitmap.width * 0.04);
                   const ch = Math.round(bitmap.height * 0.033);
                   countCanvas.width = cw * 7; countCanvas.height = ch * 7;
                   const countCtx = countCanvas.getContext("2d", {willReadFrequently:true});
                   countCtx.imageSmoothingEnabled = true;
                   countCtx.imageSmoothingQuality = "high";
                   countCtx.drawImage(source,cx,cy,cw,ch,0,0,countCanvas.width,countCanvas.height);
-                  await worker.setParameters({ tessedit_pageseg_mode: "7", tessedit_char_whitelist: "+0123456789" });
+                  await worker.setParameters({ tessedit_pageseg_mode: "10", tessedit_char_whitelist: "0123456789" });
                   const countResult = await worker.recognize(countCanvas);
                   const countText = countResult.data.text || "";
                   const countMatch = countText.match(/[+＋]?\s*(\d{1,2})/);
