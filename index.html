@@ -636,6 +636,170 @@
       item.append(name, qty);
       myDonationsContent.appendChild(item);
     });
+
+    // BANQUE DES DONS : offres publiées par les autres membres
+    const bankTitle = document.createElement("h3");
+    bankTitle.textContent = "🏦 Banque des dons de la communauté";
+    myDonationsContent.appendChild(bankTitle);
+    const bankIntro = document.createElement("p");
+    bankIntro.className = "muted";
+    bankIntro.textContent = "Consulte les cartes offertes gratuitement par les autres membres.";
+    myDonationsContent.appendChild(bankIntro);
+
+    const { data: eligibilityRows, error: eligibilityError } = await supabase.rpc("my_donation_eligibility");
+    const eligibility = eligibilityRows && eligibilityRows[0] ? eligibilityRows[0] : null;
+    if (eligibilityError) {
+      const msg = document.createElement("p");
+      msg.className = "muted";
+      msg.textContent = "Impossible de vérifier ton accès aux demandes : " + eligibilityError.message;
+      myDonationsContent.appendChild(msg);
+    } else if (eligibility) {
+      const quota = document.createElement("p");
+      quota.className = "muted";
+      quota.textContent = "Dons confirmés : " + eligibility.donations_confirmed + " · Réceptions confirmées : " + eligibility.receptions_confirmed +
+        " · Dons nécessaires avant une nouvelle demande : " + eligibility.donations_required;
+      myDonationsContent.appendChild(quota);
+    }
+
+    const { data: communityOffers, error: communityError } = await supabase
+      .from("card_offers").select("id, member_id, card_id, quantity, created_at")
+      .eq("status", "active").neq("member_id", user.id).order("created_at", { ascending: false });
+    if (communityError) {
+      const msg = document.createElement("p");
+      msg.className = "muted";
+      msg.textContent = "Impossible de charger les dons de la communauté : " + communityError.message;
+      myDonationsContent.appendChild(msg);
+    } else if (!communityOffers || !communityOffers.length) {
+      const empty = document.createElement("p");
+      empty.className = "muted";
+      empty.textContent = "Aucun don disponible pour le moment. Reviens un peu plus tard !";
+      myDonationsContent.appendChild(empty);
+    } else {
+      const donorIds = [...new Set(communityOffers.map(o => o.member_id))];
+      const { data: donorProfiles, error: donorProfilesError } = await supabase
+        .from("profiles").select("id, display_name").in("id", donorIds);
+      const donorNames = new Map((donorProfiles || []).map(p => [p.id, p.display_name || "Membre GO Partage"]));
+      const { data: myRequests, error: myRequestsError } = await supabase
+        .from("card_requests").select("id, card_id, status, created_at")
+        .eq("member_id", user.id).eq("status", "active");
+      const requestedCards = new Set((myRequests || []).map(r => r.card_id));
+      if (donorProfilesError || myRequestsError) {
+        const msg = document.createElement("p");
+        msg.className = "muted";
+        msg.textContent = "Les informations des dons n'ont pas pu être entièrement chargées.";
+        myDonationsContent.appendChild(msg);
+      }
+      communityOffers.forEach(offer => {
+        const card = cardById.get(offer.card_id);
+        if (!card) return;
+        const set = setById.get(card.set_id);
+        const item = document.createElement("div");
+        item.className = "set";
+        item.style.maxWidth = "620px";
+        item.style.margin = "12px auto";
+        const name = document.createElement("strong");
+        name.textContent = (set ? (set.name_fr || set.name) + " · " : "") + "#" + card.card_number + " " + (card.name_fr || card.name);
+        const detail = document.createElement("p");
+        detail.textContent = "Don proposé par " + (donorNames.get(offer.member_id) || "Membre GO Partage") + " · " + offer.quantity + " exemplaire(s) disponible(s)";
+        const ask = document.createElement("button");
+        const alreadyAsked = requestedCards.has(card.id);
+        ask.textContent = alreadyAsked ? "Demande déjà envoyée" : "Demander gratuitement";
+        ask.disabled = alreadyAsked || !eligibility || !eligibility.can_request || !card.is_tradable_now;
+        const askInfo = document.createElement("p");
+        askInfo.className = "muted";
+        if (!eligibility || !eligibility.can_request) {
+          askInfo.textContent = "Pour demander une carte, ton quota de dons doit être respecté.";
+        } else if (alreadyAsked) {
+          askInfo.textContent = "Ta demande pour cette carte est déjà en attente.";
+        } else if (!card.is_tradable_now) {
+          askInfo.textContent = "Cette carte n'est pas disponible au don actuellement.";
+        }
+        ask.addEventListener("click", async () => {
+          ask.disabled = true;
+          ask.textContent = "Envoi de la demande...";
+          const { error } = await supabase.rpc("request_card", { p_card_id: card.id });
+          if (error) {
+            ask.disabled = false;
+            ask.textContent = "Demander gratuitement";
+            askInfo.textContent = "Demande impossible : " + error.message;
+            return;
+          }
+          ask.textContent = "Demande envoyée";
+          askInfo.textContent = "Ta demande est transmise. Le donneur pourra la sélectionner pour t'envoyer la carte.";
+          requestedCards.add(card.id);
+        });
+        item.append(name, detail, ask, askInfo);
+        myDonationsContent.appendChild(item);
+      });
+    }
+
+    // Demandes reçues sur les cartes que je propose : le donneur choisit le bénéficiaire
+    const requestsTitle = document.createElement("h3");
+    requestsTitle.textContent = "📬 Demandes reçues sur mes dons";
+    myDonationsContent.appendChild(requestsTitle);
+    if (offers.length) {
+      const ownOfferIds = offers.map(o => o.id);
+      const ownCardIds = [...new Set(offers.map(o => o.card_id))];
+      const { data: incomingRequests, error: incomingError } = await supabase
+        .from("card_requests").select("id, member_id, card_id, created_at")
+        .in("card_id", ownCardIds).eq("status", "active").neq("member_id", user.id)
+        .order("created_at", { ascending: true });
+      if (incomingError) {
+        const msg = document.createElement("p");
+        msg.className = "muted";
+        msg.textContent = "Impossible de charger les demandes reçues : " + incomingError.message;
+        myDonationsContent.appendChild(msg);
+      } else if (!incomingRequests || !incomingRequests.length) {
+        const empty = document.createElement("p");
+        empty.className = "muted";
+        empty.textContent = "Aucune demande reçue pour tes dons pour le moment.";
+        myDonationsContent.appendChild(empty);
+      } else {
+        const requesterIds = [...new Set(incomingRequests.map(r => r.member_id))];
+        const { data: requesterProfiles } = await supabase
+          .from("profiles").select("id, display_name").in("id", requesterIds);
+        const requesterNames = new Map((requesterProfiles || []).map(p => [p.id, p.display_name || "Membre GO Partage"]));
+        incomingRequests.forEach(request => {
+          const card = cardById.get(request.card_id);
+          if (!card) return;
+          const offer = offers.find(o => o.card_id === request.card_id && o.quantity > 0);
+          if (!offer) return;
+          const set = setById.get(card.set_id);
+          const item = document.createElement("div");
+          item.className = "set";
+          const name = document.createElement("strong");
+          name.textContent = (set ? (set.name_fr || set.name) + " · " : "") + "#" + card.card_number + " " + (card.name_fr || card.name);
+          const detail = document.createElement("p");
+          detail.textContent = (requesterNames.get(request.member_id) || "Membre GO Partage") + " souhaite recevoir cette carte gratuitement.";
+          const send = document.createElement("button");
+          send.textContent = "Envoyer le don";
+          const info = document.createElement("p");
+          info.className = "muted";
+          send.addEventListener("click", async () => {
+            send.disabled = true;
+            send.textContent = "Préparation du don...";
+            const { error } = await supabase.rpc("create_card_transfer", {
+              p_offer_id: offer.id, p_request_id: request.id
+            });
+            if (error) {
+              send.disabled = false;
+              send.textContent = "Envoyer le don";
+              info.textContent = "Impossible de préparer le don : " + error.message;
+              return;
+            }
+            info.textContent = "Don préparé ! Le bénéficiaire devra confirmer la réception.";
+            send.textContent = "Don envoyé";
+          });
+          item.append(name, detail, send, info);
+          myDonationsContent.appendChild(item);
+        });
+      }
+    } else {
+      const empty = document.createElement("p");
+      empty.className = "muted";
+      empty.textContent = "Publie un don pour recevoir des demandes de cartes.";
+      myDonationsContent.appendChild(empty);
+    }
   }
 
   // MES CARTES : inventaire personnel et quantités de doublons
