@@ -1479,7 +1479,7 @@
           cancelTransfer.className = "small-button";
           cancelTransfer.textContent = "Annuler le transfert";
           cancelTransfer.addEventListener("click", async () => {
-            if (!confirm("Annuler ce transfert ? La carte retournera au donneur et la demande sera remise en attente.")) return;
+            if (!window.confirm("Annuler ce transfert ? La carte retournera au donneur et la demande sera remise en attente.")) return;
             cancelTransfer.disabled = true;
             const { error } = await supabase.rpc("cancel_card_transfer", { p_transfer_id: transfer.id });
             if (error) {
