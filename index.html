@@ -1027,8 +1027,9 @@
     if (cardsError) { myDonationsContent.textContent = "Erreur cartes : " + cardsError.message; return; }
     const cardsBySet = new Map();
     cards.forEach(card => cardsBySet.set(card.set_id, (cardsBySet.get(card.set_id) || 0) + 1));
-    const communityBankReady = !!(newestAlbum && newestAlbum.id === album.id && sets.length === 23 &&
-      cards.length === 207 && sets.every(set => (cardsBySet.get(set.id) || 0) === 9));
+    // L'album actif reste utilisable même si le prochain album n'est pas encore importé.
+    // La complétude stricte (23 sets / 207 cartes) ne doit pas fermer la banque.
+    const communityBankReady = sets.length > 0 && cards.length > 0;
     const { data: ownedRows, error: ownedError } = await supabase.from("member_cards").select("card_id, quantity").eq("member_id", user.id);
     if (ownedError) { myDonationsContent.textContent = "Erreur inventaire : " + ownedError.message; return; }
     const { data: offers, error: offersError } = await supabase.from("card_offers").select("id, card_id, quantity, created_at").eq("member_id", user.id).eq("status", "active").order("created_at", { ascending: false });
@@ -1423,7 +1424,7 @@
     } else {
       const hidden = document.createElement("p");
       hidden.className = "muted";
-      hidden.textContent = "La Banque des dons restera fermée jusqu’à l’activation du nouvel album et l’ajout de ses 23 sets complets : 9 cartes approuvées par set, soit 207 cartes au total.";
+      hidden.textContent = "La Banque des dons est indisponible car aucun set ou aucune carte approuvée n’est disponible dans l’album actif.";
       bankDonationsContent.appendChild(hidden);
     }
 
