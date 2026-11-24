@@ -514,6 +514,33 @@
     }
   });
 
+  // Le bouton utilise exactement le même client Supabase que celui qui
+  // récupère la session au retour de Facebook (PKCE).
+  const facebookButton = document.getElementById("facebookButton");
+  const loginStatus = document.getElementById("status");
+  if (facebookButton && loginStatus) {
+    facebookButton.addEventListener("click", async () => {
+      if (facebookButton.disabled) return;
+      facebookButton.disabled = true;
+      loginStatus.textContent = "Connexion à Facebook...";
+      try {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: "facebook",
+          options: {
+            redirectTo: window.location.origin + window.location.pathname
+          }
+        });
+        if (error) throw error;
+      } catch (error) {
+        console.error("Erreur de connexion Facebook :", error);
+        loginStatus.textContent = "La connexion n'a pas pu démarrer : " +
+          (error?.message || "erreur inconnue") +
+          ". Vérifie ta connexion Internet puis réessaie.";
+        facebookButton.disabled = false;
+      }
+    });
+  }
+
   const loginPanel = document.getElementById("loginPanel");
 
   const accountPanel = document.getElementById("accountPanel");
@@ -2208,41 +2235,6 @@
     });
   }
 
-</script>
-
-<script>
-  // Connexion indépendante du reste de l'application : le bouton reste actif
-  // même si une autre partie du module principal rencontre une erreur.
-  (() => {
-    const button = document.getElementById("facebookButton");
-    const status = document.getElementById("status");
-    if (!button || !status) return;
-
-    button.addEventListener("click", async () => {
-      if (button.disabled) return;
-      button.disabled = true;
-      status.textContent = "Connexion à Facebook...";
-      try {
-        const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-        const client = createClient(
-          "https://emcmvflmdxiwzanxggmu.supabase.co",
-          "sb_publishable_DewNBprHDwNNxDm24c4_sQ_nqaFhXT_",
-          { auth: { flowType: "pkce", persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storage: window.localStorage } }
-        );
-        const { error } = await client.auth.signInWithOAuth({
-          provider: "facebook",
-          options: { redirectTo: window.location.origin + window.location.pathname }
-        });
-        if (error) throw error;
-      } catch (error) {
-        console.error("Erreur de connexion Facebook :", error);
-        status.textContent = "La connexion n'a pas pu démarrer : " +
-          (error && error.message ? error.message : "erreur inconnue") +
-          ". Vérifie ta connexion Internet puis réessaie.";
-        button.disabled = false;
-      }
-    });
-  })();
 </script>
 
 </body>
