@@ -2296,6 +2296,50 @@
 })();
 </script>
 
+
+<!-- Secours indépendant : le bouton Facebook reste actif même si le module principal échoue -->
+<script>
+(function () {
+  const button = document.getElementById("facebookButton");
+  const status = document.getElementById("status");
+  if (!button || button.dataset.goPartageFallbackReady === "1") return;
+  button.dataset.goPartageFallbackReady = "1";
+
+  button.addEventListener("click", async function (event) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    button.disabled = true;
+    if (status) status.textContent = "Connexion à Facebook...";
+    try {
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+      const client = window.goPartageSupabase || createClient(
+        "https://emcmvflmdxiwzanxggmu.supabase.co",
+        "sb_publishable_DewNBprHDwNNxDm24c4_sQ_nqaFhXT_",
+        {
+          auth: {
+            flowType: "pkce",
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: false,
+            storage: window.localStorage
+          }
+        }
+      );
+      const { error } = await client.auth.signInWithOAuth({
+        provider: "facebook",
+        options: { redirectTo: window.location.origin + window.location.pathname }
+      });
+      if (error) throw error;
+    } catch (error) {
+      console.error("Secours connexion Facebook GO Partage :", error);
+      if (status) status.textContent = "Impossible de démarrer la connexion Facebook : " +
+        (error && error.message ? error.message : "erreur inconnue");
+      button.disabled = false;
+    }
+  }, true);
+})();
+</script>
+
 </body>
 
 </html>
