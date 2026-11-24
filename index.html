@@ -1923,6 +1923,19 @@
         resultLabel.className = "import-status";
         resultLabel.textContent = importMatches.size + " carte(s) reconnue(s) sur l’ensemble de l’album. Vérifie les cases avant l’enregistrement.";
         importBox.appendChild(resultLabel);
+        if (!importMatches.size && importText) {
+          const diagnostic = document.createElement("details");
+          const diagnosticTitle = document.createElement("summary");
+          diagnosticTitle.textContent = "Voir le texte détecté par le scanner";
+          const diagnosticText = document.createElement("pre");
+          diagnosticText.className = "import-status";
+          diagnosticText.style.whiteSpace = "pre-wrap";
+          diagnosticText.style.maxHeight = "150px";
+          diagnosticText.style.overflow = "auto";
+          diagnosticText.textContent = importText.slice(0, 1800) || "Aucun texte détecté dans les captures.";
+          diagnostic.append(diagnosticTitle, diagnosticText);
+          importBox.appendChild(diagnostic);
+        }
         const choices = document.createElement("div");
         cards.filter(card => importMatches.has(card.id) || importChecked.has(card.id)).forEach(card => {
           const label = document.createElement("label"); label.className = "import-choice";
