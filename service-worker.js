@@ -1,4 +1,4 @@
-const CACHE_NAME = "go-partage-shell-v13";
+const CACHE_NAME = "go-partage-shell-v14";
 const APP_SHELL = [
   "/GO-Partage/",
   "/GO-Partage/index.html",
