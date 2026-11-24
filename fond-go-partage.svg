@@ -1,54 +1,81 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000">
 <defs>
- <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#123f70"/><stop offset=".48" stop-color="#287f9a"/><stop offset="1" stop-color="#e4c98e"/></linearGradient>
- <linearGradient id="gold" x2="0" y2="1"><stop stop-color="#ffdf72"/><stop offset=".55" stop-color="#f0a52f"/><stop offset="1" stop-color="#bb4a32"/></linearGradient>
- <linearGradient id="stone" x2="0" y2="1"><stop stop-color="#fff1d2"/><stop offset="1" stop-color="#d9c39c"/></linearGradient>
- <linearGradient id="note" x2="1" y2="1"><stop stop-color="#9ad77e"/><stop offset="1" stop-color="#26734c"/></linearGradient>
- <radialGradient id="veil"><stop stop-color="#f7f1e6" stop-opacity=".22"/><stop offset=".62" stop-color="#f7f1e6" stop-opacity=".10"/><stop offset="1" stop-color="#f7f1e6" stop-opacity=".01"/></radialGradient>
- <pattern id="grain" width="7" height="7" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".6" fill="#fff" opacity=".12"/></pattern>
+ <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#20b9e9"/><stop offset=".48" stop-color="#75d7f2"/><stop offset="1" stop-color="#ffe58a"/></linearGradient>
+ <linearGradient id="wall" x2="0" y2="1"><stop stop-color="#fff18a"/><stop offset=".48" stop-color="#ffbf45"/><stop offset="1" stop-color="#ed7834"/></linearGradient>
+ <linearGradient id="roof" x2="0" y2="1"><stop stop-color="#ff6d58"/><stop offset=".52" stop-color="#ed304f"/><stop offset="1" stop-color="#a91d55"/></linearGradient>
+ <linearGradient id="blue" x2="0" y2="1"><stop stop-color="#45d9ef"/><stop offset=".5" stop-color="#168dc8"/><stop offset="1" stop-color="#164b9a"/></linearGradient>
+ <linearGradient id="purple" x2="0" y2="1"><stop stop-color="#d58aff"/><stop offset=".55" stop-color="#9252d5"/><stop offset="1" stop-color="#58349d"/></linearGradient>
+ <linearGradient id="gold" x2="0" y2="1"><stop stop-color="#fff5a8"/><stop offset=".45" stop-color="#ffca36"/><stop offset="1" stop-color="#d97716"/></linearGradient>
+ <linearGradient id="green" x2="0" y2="1"><stop stop-color="#a8f06d"/><stop offset=".55" stop-color="#35b968"/><stop offset="1" stop-color="#167b65"/></linearGradient>
+ <radialGradient id="glow"><stop stop-color="#fff" stop-opacity=".5"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+ <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%"><feGaussianBlur in="SourceAlpha" stdDeviation="15"/><feOffset dy="20"/><feComponentTransfer><feFuncA type="linear" slope=".38"/></feComponentTransfer><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+ <filter id="soft"><feGaussianBlur stdDeviation="5"/></filter>
+ <pattern id="sparkle" width="95" height="95" patternUnits="userSpaceOnUse"><path d="M48 8l5 30 30 10-30 5-5 30-5-30-30-5 30-10z" fill="#fff" opacity=".25"/></pattern>
 </defs>
 <rect width="1600" height="1000" fill="url(#sky)"/>
-<!-- bank facade -->
-<g opacity=".92">
- <path d="M170 310L800 80l630 230z" fill="#d94b3d" stroke="#f6c65b" stroke-width="9"/>
- <path d="M220 315H1380V670H220z" fill="url(#stone)" stroke="#7b5a31" stroke-width="8"/>
- <path d="M190 300H1410V340H190z" fill="#f4c34e" stroke="#9c542e" stroke-width="7"/>
- <!-- enseigne originale de la banque -->
- <rect x="565" y="278" width="470" height="68" rx="13" fill="#173f78" stroke="#f5cf68" stroke-width="8"/>
- <rect x="579" y="290" width="442" height="44" rx="8" fill="none" stroke="#fff0c4" stroke-width="2"/>
- <text x="800" y="320" text-anchor="middle" font-family="Arial,sans-serif" font-size="29" font-weight="bold" letter-spacing="2" fill="#fff8e8">BANQUE DU PARTAGE</text>
- <g fill="#fff0d1" stroke="#8b6242" stroke-width="8">
-  <path d="M300 365h115v270H300z"/><path d="M510 365h115v270H510z"/><path d="M720 365h160v270H720z"/><path d="M975 365h115v270H975z"/><path d="M1185 365h115v270h-115z"/>
+<circle cx="220" cy="170" r="260" fill="url(#glow)"/>
+<circle cx="1370" cy="185" r="300" fill="url(#glow)"/>
+<g fill="#fff" opacity=".65"><ellipse cx="250" cy="230" rx="125" ry="28"/><ellipse cx="330" cy="220" rx="80" ry="36"/><ellipse cx="1280" cy="265" rx="150" ry="30"/><ellipse cx="1370" cy="250" rx="90" ry="38"/></g>
+<!-- bâtiment monumental en perspective, avec volumes et ombres -->
+<g filter="url(#shadow)">
+ <!-- base profonde -->
+ <path d="M205 720L800 825l595-105-595-95z" fill="#6a328e" stroke="#f9cf50" stroke-width="12"/>
+ <path d="M205 720L800 825v38L205 760z" fill="#4c247c"/>
+ <path d="M800 825l595-105v40L800 863z" fill="#341f72"/>
+ <!-- ailes latérales -->
+ <path d="M265 390L800 285l535 105v300L800 790 265 690z" fill="url(#wall)" stroke="#a94c30" stroke-width="12"/>
+ <path d="M265 390L800 495v295L265 690z" fill="#f4a43c" opacity=".65"/>
+ <path d="M800 495l535-105v300L800 790z" fill="#df7137" opacity=".55"/>
+ <!-- fronton en relief -->
+ <path d="M190 390L800 125l610 265-610 125z" fill="url(#roof)" stroke="#ffdc59" stroke-width="15" stroke-linejoin="round"/>
+ <path d="M260 385L800 165l540 220-540 110z" fill="#ff8b42" opacity=".45"/>
+ <path d="M800 125v370" stroke="#a51f55" stroke-width="12" opacity=".55"/>
+ <path d="M235 390L800 150l565 240" fill="none" stroke="#fff2a0" stroke-width="10" opacity=".9"/>
+ <!-- dôme / couronne -->
+ <path d="M575 260Q800 25 1025 260L1025 310 575 310z" fill="url(#gold)" stroke="#a95a28" stroke-width="10"/>
+ <path d="M620 252Q800 70 980 252" fill="none" stroke="#fff7b7" stroke-width="13"/>
+ <path d="M800 70v-35" stroke="#9d3c67" stroke-width="12"/><circle cx="800" cy="28" r="20" fill="#ffec75" stroke="#9d3c67" stroke-width="8"/>
+ <!-- bandeaux et moulures -->
+ <path d="M245 390L800 505l555-115v48L800 555 245 438z" fill="url(#gold)" stroke="#a85c28" stroke-width="8"/>
+ <path d="M245 685L800 790l555-105v38L800 830 245 725z" fill="url(#gold)" stroke="#a85c28" stroke-width="8"/>
+ <!-- colonnes épaisses, faces en surbrillance -->
+ <g stroke="#9b542a" stroke-width="9">
+  <path d="M365 440l72 15v225l-72-14z" fill="url(#blue)"/><path d="M437 455l20 5v225l-20-5z" fill="#77edee"/>
+  <path d="M570 480l75 15v245l-75-15z" fill="url(#purple)"/><path d="M645 495l20 4v245l-20-4z" fill="#e2a2ff"/>
+  <path d="M955 495l75-15v245l-75 15z" fill="url(#green)"/><path d="M955 495l-20 4v245l20-4z" fill="#d7ff94"/>
+  <path d="M1165 455l72-15v225l-72 14z" fill="url(#blue)"/><path d="M1165 455l-20 5v225l20-5z" fill="#85f3f1"/>
  </g>
- <g fill="#1d527a" opacity=".92">
-  <path d="M325 410q32-55 65 0v190h-65z"/><path d="M535 410q32-55 65 0v190h-65z"/><path d="M757 410q43-75 86 0v190h-86z"/><path d="M1000 410q32-55 65 0v190h-65z"/><path d="M1210 410q32-55 65 0v190h-65z"/>
+ <!-- fenêtres en arche -->
+ <g stroke="#ffe68a" stroke-width="10">
+  <path d="M480 475q45-75 90 0v180l-90-18z" fill="#183d86"/>
+  <path d="M700 520q50-90 100 0v205l-100-20z" fill="#173b7c"/>
+  <path d="M900 520q50-90 100 0v185l-100 20z" fill="#173b7c"/>
+  <path d="M1080 475q45-75 90 0v162l-90 18z" fill="#183d86"/>
  </g>
- <path d="M160 660H1440v38H160z" fill="#8f6c3e"/>
- <path d="M260 720H1340" stroke="#e6d4af" stroke-width="8" opacity=".7"/>
+ <g fill="none" stroke="#74e9f0" stroke-width="8" opacity=".9"><path d="M525 500v150M750 535v174M950 535v174M1125 500v150"/></g>
+ <!-- porte centrale en arche -->
+ <path d="M735 650q0-105 65-105t65 105v125l-130-25z" fill="#8d3fba" stroke="#ffdf62" stroke-width="12"/>
+ <path d="M760 660q0-72 40-72t40 72v102l-80-15z" fill="#143b7c" stroke="#f9a93b" stroke-width="7"/>
+ <circle cx="820" cy="705" r="7" fill="#ffe77b"/>
+ <!-- escalier en perspective -->
+ <path d="M615 785l185 35 185-35-185-35z" fill="#fff0a0" stroke="#a75c37" stroke-width="8"/>
+ <path d="M650 805l150 29 150-29-150-29z" fill="url(#purple)" stroke="#ffe27b" stroke-width="7"/>
+ <path d="M685 825l115 22 115-22-115-22z" fill="url(#blue)" stroke="#ffe27b" stroke-width="7"/>
 </g>
-<!-- pièces dorées décoratives autour de la banque -->
-<g fill="#f4c34e" stroke="#9c672e" stroke-width="6" opacity=".96">
- <circle cx="365" cy="755" r="34"/><circle cx="420" cy="780" r="25"/>
- <circle cx="1215" cy="760" r="32"/><circle cx="1170" cy="790" r="22"/>
-</g>
-<g fill="#fff0b5" font-family="Arial,sans-serif" font-size="28" font-weight="bold" text-anchor="middle">
- <text x="365" y="765">G</text><text x="1215" y="770">G</text>
-</g>
-<!-- soft transparent central wash for readable app panels -->
-<rect width="1600" height="1000" fill="url(#veil)"/>
-<!-- board path along bottom -->
-<g transform="translate(0 850)" opacity=".98">
- <rect x="0" y="0" width="1600" height="150" fill="#163d69" opacity=".9"/>
- <path d="M0 12H1600M0 138H1600" stroke="#d8b66e" stroke-width="7"/>
- <g stroke="#fff1cf" stroke-width="5">
-  <rect x="30" y="30" width="150" height="90" rx="8" fill="#e34e43"/><rect x="190" y="30" width="150" height="90" rx="8" fill="#f2bd3f"/><rect x="350" y="30" width="150" height="90" rx="8" fill="#4b9a65"/><rect x="510" y="30" width="150" height="90" rx="8" fill="#3979b8"/><rect x="670" y="30" width="150" height="90" rx="8" fill="#ef873b"/><rect x="830" y="30" width="150" height="90" rx="8" fill="#9b68aa"/><rect x="990" y="30" width="150" height="90" rx="8" fill="#e34e43"/><rect x="1150" y="30" width="150" height="90" rx="8" fill="#f2bd3f"/><rect x="1310" y="30" width="150" height="90" rx="8" fill="#4b9a65"/>
+<!-- fanions colorés et étoiles -->
+<g filter="url(#shadow)"><path d="M160 330l90-40v90z" fill="#ffdc3e" stroke="#d34b40" stroke-width="7"/><path d="M1440 330l-90-40v90z" fill="#55db79" stroke="#247f85" stroke-width="7"/></g>
+<g fill="url(#gold)" stroke="#b36a23" stroke-width="5"><path d="M145 520l14 36 39 3-30 25 9 38-32-21-33 21 10-38-30-25 39-3z"/><path d="M1450 520l14 36 39 3-30 25 9 38-32-21-33 21 10-38-30-25 39-3z"/></g>
+<!-- gros jetons en relief sur les côtés, sans cartes -->
+<g filter="url(#shadow)"><ellipse cx="185" cy="785" rx="72" ry="27" fill="#8e4bc0"/><ellipse cx="185" cy="766" rx="72" ry="27" fill="url(#gold)" stroke="#fff0a0" stroke-width="9"/><ellipse cx="1410" cy="785" rx="72" ry="27" fill="#8e4bc0"/><ellipse cx="1410" cy="766" rx="72" ry="27" fill="url(#gold)" stroke="#fff0a0" stroke-width="9"/></g>
+<!-- plateau multicolore au premier plan -->
+<g transform="translate(0 870)">
+ <path d="M0 0H1600V130H0z" fill="#173b76" stroke="#fbd85a" stroke-width="12"/>
+ <g stroke="#fff1ba" stroke-width="7">
+  <path d="M25 22h150v82H25z" fill="#ff4d48"/><path d="M195 22h150v82H195z" fill="#ffce32"/><path d="M365 22h150v82H365z" fill="#41c96b"/><path d="M535 22h150v82H535z" fill="#2e9be8"/><path d="M705 22h150v82H705z" fill="#ff8a37"/><path d="M875 22h150v82H875z" fill="#a45de1"/><path d="M1045 22h150v82h-150z" fill="#ff4d48"/><path d="M1215 22h150v82h-150z" fill="#ffce32"/><path d="M1385 22h150v82h-150z" fill="#41c96b"/>
  </g>
- <g fill="#fff4df"><rect x="42" y="39" width="126" height="14" rx="3"/><rect x="202" y="39" width="126" height="14" rx="3"/><rect x="362" y="39" width="126" height="14" rx="3"/><rect x="522" y="39" width="126" height="14" rx="3"/><rect x="682" y="39" width="126" height="14" rx="3"/><rect x="842" y="39" width="126" height="14" rx="3"/><rect x="1002" y="39" width="126" height="14" rx="3"/><rect x="1162" y="39" width="126" height="14" rx="3"/><rect x="1322" y="39" width="126" height="14" rx="3"/></g>
+ <g fill="#fff6d7" opacity=".9"><circle cx="100" cy="62" r="14"/><path d="M250 42h40v40h-40z"/><circle cx="440" cy="62" r="14"/><path d="M590 42h40v40h-40z"/><circle cx="780" cy="62" r="14"/><path d="M930 42h40v40h-40z"/><circle cx="1120" cy="62" r="14"/><path d="M1270 42h40v40h-40z"/><circle cx="1460" cy="62" r="14"/></g>
 </g>
-<!-- banknotes and cards around the edges -->
-<g transform="translate(65 610) rotate(-13)" opacity=".95"><rect width="230" height="130" rx="13" fill="url(#note)" stroke="#e5ca83" stroke-width="7"/><rect x="14" y="14" width="202" height="102" rx="8" fill="none" stroke="#d8c28a" stroke-width="3"/><circle cx="115" cy="65" r="38" fill="none" stroke="#d8c28a" stroke-width="4"/><path d="M80 65h70M115 30v70" stroke="#d8c28a" stroke-width="3"/></g>
-<g transform="translate(1310 590) rotate(14)" opacity=".94"><rect width="170" height="235" rx="15" fill="#f6eee0" stroke="#c69a4e" stroke-width="8"/><rect x="15" y="15" width="140" height="205" rx="10" fill="none" stroke="#345267" stroke-width="4"/><path d="M42 85h86M42 105h65" stroke="#c69a4e" stroke-width="7" stroke-linecap="round"/><circle cx="85" cy="160" r="28" fill="#315f50" opacity=".9"/></g>
-<g transform="translate(1390 190) rotate(12)" opacity=".9"><rect width="95" height="95" rx="17" fill="#f5ead2" stroke="#c99a4b" stroke-width="7"/><g fill="#31485a"><circle cx="24" cy="24" r="8"/><circle cx="70" cy="24" r="8"/><circle cx="47" cy="47" r="8"/><circle cx="24" cy="70" r="8"/><circle cx="70" cy="70" r="8"/></g></g>
-<g transform="translate(105 190) rotate(-10)" opacity=".9"><rect width="95" height="95" rx="17" fill="#f5ead2" stroke="#c99a4b" stroke-width="7"/><g fill="#31485a"><circle cx="24" cy="24" r="8"/><circle cx="70" cy="70" r="8"/></g></g>
-<rect width="1600" height="1000" fill="url(#grain)"/>
+<rect width="1600" height="1000" fill="url(#sparkle)" opacity=".4"/>
+<!-- voile léger pour conserver la lisibilité des panneaux -->
+<rect width="1600" height="1000" fill="#fff7df" opacity=".09"/>
 </svg>
