@@ -458,6 +458,8 @@
     <h2>🛠️ Administration GO Partage</h2>
     <p class="muted">Espace réservé à l’équipe d’administration.</p>
     <div id="adminAlbumOverview" class="set">Chargement des albums...</div>
+    <h3>Litiges sur les dons</h3>
+    <div id="adminDonationDisputes">Chargement des litiges...</div>
     <h3>Suggestions des membres</h3>
     <div id="adminSuggestionsList">Chargement des suggestions...</div>
   </section>
@@ -1001,15 +1003,30 @@
       const qty = document.createElement("p");
       qty.textContent = offer.quantity + " exemplaire(s) proposé(s) au don";
       item.append(name, qty);
+      const cancelOffer = document.createElement("button");
+      cancelOffer.className = "small-button";
+      cancelOffer.textContent = "Annuler ce don";
+      cancelOffer.addEventListener("click", async () => {
+        if (!confirm("Veux-tu retirer cette proposition de don ?")) return;
+        cancelOffer.disabled = true;
+        const { error } = await supabase.rpc("cancel_card_offer", { p_offer_id: offer.id });
+        if (error) {
+          cancelOffer.disabled = false;
+          feedback.textContent = "Impossible d’annuler ce don : " + error.message;
+          return;
+        }
+        await loadMyDonations();
+      });
+      item.appendChild(cancelOffer);
       myDonationsContent.appendChild(item);
     });
 
-    // BANQUE DES DONS : elle reste fermée tant que le dernier album n'est pas entièrement prêt.
+    // Banque ouverte uniquement si les 23 sets ont chacun leurs 9 cartes approuvées.
     let communityBankReady = false;
     if (newestAlbum && newestAlbum.id === album.id && sets.length === 23) {
       const cardsBySet = new Map();
-      cards.forEach(card => cardsBySet.set(card.set_id, (cardsBySet.get(card.set_id) || 0) + 1));
-      communityBankReady = sets.every(set => (cardsBySet.get(set.id) || 0) > 0);
+      cards.forEach(card => cardsBySet.set(card.set_id, (cardsBySet.get(set.id) || 0) + 1));
+      communityBankReady = cards.length === 207 && sets.every(set => (cardsBySet.get(set.id) || 0) === 9);
     }
 
     if (communityBankReady) {
