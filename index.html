@@ -509,7 +509,7 @@
       flowType: "pkce",
       persistSession: true,
       autoRefreshToken: true,
-      detectSessionInUrl: true,
+      detectSessionInUrl: false,
       storage: window.localStorage
     }
   });
@@ -2236,37 +2236,34 @@
 </script>
 
 
-<!-- GO_PARTAGE_LOGIN_FALLBACK: bouton autonome si le module principal rencontre une erreur -->
+
+
+<!-- Traitement explicite du retour OAuth Facebook -->
 <script>
-(function () {
-  const button = document.getElementById("facebookButton");
+(async function () {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("code");
+  if (!code) return;
   const status = document.getElementById("status");
-  if (!button || !status) return;
-  button.addEventListener("click", async function (event) {
-    event.preventDefault();
-    if (button.dataset.loginBusy === "1") return;
-    button.dataset.loginBusy = "1";
-    button.disabled = true;
-    status.textContent = "Connexion à Facebook...";
-    try {
-      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-      const client = createClient(
-        "https://emcmvflmdxiwzanxggmu.supabase.co",
-        "sb_publishable_DewNBprHDwNNxDm24c4_sQ_nqaFhXT_",
-        { auth: { flowType: "pkce", persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storage: window.localStorage } }
-      );
-      const { error } = await client.auth.signInWithOAuth({
-        provider: "facebook",
-        options: { redirectTo: window.location.origin + window.location.pathname }
-      });
-      if (error) throw error;
-    } catch (error) {
-      console.error("Connexion Facebook GO Partage :", error);
-      status.textContent = "Erreur de connexion : " + (error && error.message ? error.message : "réessaie dans un instant.");
-      button.disabled = false;
-      button.dataset.loginBusy = "0";
-    }
-  });
+  if (status) status.textContent = "Finalisation de ta connexion...";
+  try {
+    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+    const authClient = createClient(
+      "https://emcmvflmdxiwzanxggmu.supabase.co",
+      "sb_publishable_DewNBprHDwNNxDm24c4_sQ_nqaFhXT_",
+      { auth: { flowType: "pkce", persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storage: window.localStorage } }
+    );
+    const { data, error } = await authClient.auth.exchangeCodeForSession(code);
+    if (error) throw error;
+    if (!data || !data.session) throw new Error("Facebook a répondu, mais aucune session n'a été créée.");
+    params.delete("code");
+    params.delete("state");
+    const cleanUrl = window.location.pathname + (params.toString() ? "?" + params.toString() : "") + window.location.hash;
+    window.location.replace(cleanUrl);
+  } catch (error) {
+    console.error("Finalisation OAuth GO Partage :", error);
+    if (status) status.textContent = "La connexion Facebook a été validée, mais GO Partage n'a pas pu ouvrir ta session : " + (error && error.message ? error.message : "erreur inconnue");
+  }
 })();
 </script>
 
