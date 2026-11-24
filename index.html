@@ -2077,6 +2077,25 @@
               source.width = bitmap.width; source.height = bitmap.height;
               const ctx = source.getContext("2d", { willReadFrequently: true });
               ctx.drawImage(bitmap, 0, 0);
+              // Le numéro Page X/22 identifie le set ; la position identifie la carte.
+              const pageCanvas = document.createElement("canvas");
+              const pageX = Math.round(bitmap.width * 0.39);
+              const pageY = Math.round(bitmap.height * 0.77);
+              const pageW = Math.round(bitmap.width * 0.23);
+              const pageH = Math.round(bitmap.height * 0.055);
+              pageCanvas.width = pageW * 5; pageCanvas.height = pageH * 5;
+              pageCanvas.getContext("2d").drawImage(source,pageX,pageY,pageW,pageH,0,0,pageCanvas.width,pageCanvas.height);
+              await worker.setParameters({ tessedit_pageseg_mode: "7", tessedit_char_whitelist: "0123456789/" });
+              const pageResult = await worker.recognize(pageCanvas);
+              const pageText = pageResult.data.text || "";
+              const pageMatch = pageText.match(/(\d{1,2})\s*\/\s*\d{1,2}/);
+              const pageNumber = pageMatch ? Number(pageMatch[1]) : null;
+              const targetSet = pageNumber ? sets.find(item => Number(item.sort_order) === pageNumber) : null;
+              if (!targetSet) {
+                textParts.push("[CAPTURE " + (i+1) + "] Numéro de page non reconnu : " + pageText.trim());
+                continue;
+              }
+              textParts.push("[CAPTURE " + (i+1) + "] Page " + pageNumber + " → " + (targetSet.name_fr || targetSet.name));
               // Les captures Monopoly GO présentent les 9 cartes en 3 colonnes.
               // On lit séparément la bande du nom et l'étiquette +N de chaque carte.
               // Coordonnées calibrées sur une capture réelle 942 × 2048 :
@@ -2113,28 +2132,31 @@
                   const thresholdText = (thresholdResult.data.text || "").trim();
                   if (thresholdText.length > nameText.length) nameText = thresholdText;
                   textParts.push("[CAPTURE " + (i+1) + " - CARTE " + zone + "] " + nameText);
-                  const matchedCard = matchCardName(nameText);
-                  if (matchedCard) {
-                    importMatches.add(matchedCard.id);
-                    importChecked.add(matchedCard.id);
-                    const countCanvas = document.createElement("canvas");
-                    const cx = Math.round(bitmap.width * nameXs[col]);
-                    const cy = Math.round(bitmap.height * countTop[row]);
-                    const cw = Math.round(bitmap.width * 0.09);
-                    const ch = Math.round(bitmap.height * 0.033);
-                    countCanvas.width = cw * 7; countCanvas.height = ch * 7;
-                    const countCtx = countCanvas.getContext("2d", {willReadFrequently:true});
-                    countCtx.imageSmoothingEnabled = true;
-                    countCtx.imageSmoothingQuality = "high";
-                    countCtx.drawImage(source,cx,cy,cw,ch,0,0,countCanvas.width,countCanvas.height);
-                    await worker.setParameters({ tessedit_pageseg_mode: "7", tessedit_char_whitelist: "+0123456789" });
-                    const countResult = await worker.recognize(countCanvas);
-                    const countText = countResult.data.text || "";
-                    const countMatch = countText.match(/[+＋]?\s*(\d{1,2})/);
-                    const doubles = countMatch ? Math.min(99, Number(countMatch[1])) : 0;
-                    importQuantities.set(matchedCard.id, Math.max(importQuantities.get(matchedCard.id) || 0, doubles));
-                    textParts.push("[DOUBLES CARTE " + zone + "] " + countText);
+                  // La position 1 à 9 correspond au numéro de carte dans le set.
+                  const matchedCard = cards.find(card => card.set_id === targetSet.id && Number(card.card_number) === zone);
+                  if (!matchedCard) {
+                    textParts.push("[CARTE " + zone + "] introuvable dans le set " + pageNumber);
+                    continue;
                   }
+                  importMatches.add(matchedCard.id);
+                  importChecked.add(matchedCard.id);
+                  const countCanvas = document.createElement("canvas");
+                  const cx = Math.round(bitmap.width * nameXs[col]);
+                  const cy = Math.round(bitmap.height * countTop[row]);
+                  const cw = Math.round(bitmap.width * 0.09);
+                  const ch = Math.round(bitmap.height * 0.033);
+                  countCanvas.width = cw * 7; countCanvas.height = ch * 7;
+                  const countCtx = countCanvas.getContext("2d", {willReadFrequently:true});
+                  countCtx.imageSmoothingEnabled = true;
+                  countCtx.imageSmoothingQuality = "high";
+                  countCtx.drawImage(source,cx,cy,cw,ch,0,0,countCanvas.width,countCanvas.height);
+                  await worker.setParameters({ tessedit_pageseg_mode: "7", tessedit_char_whitelist: "+0123456789" });
+                  const countResult = await worker.recognize(countCanvas);
+                  const countText = countResult.data.text || "";
+                  const countMatch = countText.match(/[+＋]?\s*(\d{1,2})/);
+                  const doubles = countMatch ? Math.min(99, Number(countMatch[1])) : 0;
+                  importQuantities.set(matchedCard.id, Math.max(importQuantities.get(matchedCard.id) || 0, doubles));
+                  textParts.push("[DOUBLES CARTE " + zone + "] " + countText);
                 }
               }
               await worker.setParameters({ tessedit_pageseg_mode: "6", preserve_interword_spaces: "1" });
