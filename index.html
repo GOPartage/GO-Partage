@@ -2141,12 +2141,15 @@
                   importMatches.add(matchedCard.id);
                   importChecked.add(matchedCard.id);
                   const countCanvas = document.createElement("canvas");
-                  // On isole le chiffre à droite du signe + pour éviter de lire le + comme un 4.
-                  // Lire toute l'étiquette blanche inclinée (+N), pas seulement le bord du chiffre.
-                  const cx = Math.round(bitmap.width * [0.08, 0.335, 0.585][col]);
-                  const cy = Math.round(bitmap.height * (countTop[row] - 0.004));
-                  const cw = Math.round(bitmap.width * 0.09);
-                  const ch = Math.round(bitmap.height * 0.043);
+                  // Coordonnées exactes des badges +N observés sur la capture 942 × 2048.
+                  // Chaque badge est en bas à gauche de sa vignette. Les anciennes
+                  // coordonnées des colonnes 2 et 3 étaient trop à gauche.
+                  const countXs = [0.085, 0.398, 0.710];
+                  const countYs = [0.365, 0.521, 0.677];
+                  const cx = Math.round(bitmap.width * countXs[col]);
+                  const cy = Math.round(bitmap.height * countYs[row]);
+                  const cw = Math.round(bitmap.width * 0.105);
+                  const ch = Math.round(bitmap.height * 0.035);
                   countCanvas.width = cw * 8; countCanvas.height = ch * 8;
                   const countCtx = countCanvas.getContext("2d", {willReadFrequently:true});
                   countCtx.imageSmoothingEnabled = true;
@@ -2156,14 +2159,14 @@
                   const countData = countPixels.data;
                   for (let p=0;p<countData.length;p+=4) {
                     const gray=countData[p]*0.299+countData[p+1]*0.587+countData[p+2]*0.114;
-                    const value=gray<155?0:255;
+                    const value=gray<175?0:255;
                     countData[p]=countData[p+1]=countData[p+2]=value;
                   }
                   countCtx.putImageData(countPixels,0,0);
-                  await worker.setParameters({ tessedit_pageseg_mode: "8", tessedit_char_whitelist: "0123456789", classify_bln_numeric_mode: "1" });
+                  await worker.setParameters({ tessedit_pageseg_mode: "7", tessedit_char_whitelist: "0123456789", classify_bln_numeric_mode: "1" });
                   const countResult = await worker.recognize(countCanvas);
                   const countText = countResult.data.text || "";
-                  const countMatch = countText.match(/(\d{1,2})/);
+                  const countMatch = countText.match(/(\\d{1,2})/);
                   const doubles = countMatch ? Math.min(99, Number(countMatch[1])) : 0;
                   importQuantities.set(matchedCard.id, Math.max(importQuantities.get(matchedCard.id) || 0, doubles));
                   textParts.push("[DOUBLES CARTE " + zone + "] " + countText);
