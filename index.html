@@ -1422,6 +1422,42 @@
         myDonationsContent.appendChild(item);
       });
     }
+
+    const sentTitle = document.createElement("h3");
+    sentTitle.textContent = "📤 Mes dons envoyés en attente";
+    myDonationsContent.appendChild(sentTitle);
+    const { data: sentTransfers, error: sentTransfersError } = await supabase
+      .from("transfers").select("id,recipient_id,card_id,status,dispute_reason,created_at")
+      .eq("donor_id", user.id).in("status", ["awaiting_recipient", "disputed"])
+      .order("created_at", { ascending: false });
+    if (sentTransfersError) {
+      const sentError = document.createElement("p");
+      sentError.className = "muted";
+      sentError.textContent = "Impossible de charger le suivi de tes dons : " + sentTransfersError.message;
+      myDonationsContent.appendChild(sentError);
+    } else if (!sentTransfers || !sentTransfers.length) {
+      const sentEmpty = document.createElement("p");
+      sentEmpty.className = "muted";
+      sentEmpty.textContent = "Aucun don envoyé en attente.";
+      myDonationsContent.appendChild(sentEmpty);
+    } else {
+      const recipientIds = [...new Set(sentTransfers.map(t => t.recipient_id))];
+      const { data: recipients } = await supabase.from("profiles").select("id,display_name").in("id", recipientIds);
+      const recipientNames = new Map((recipients || []).map(p => [p.id,p.display_name || "Membre GO Partage"]));
+      sentTransfers.forEach(transfer => {
+        const card = cardById.get(transfer.card_id);
+        const row = document.createElement("div");
+        row.className = "set";
+        const label = document.createElement("strong");
+        label.textContent = card ? "#" + card.card_number + " " + (card.name_fr || card.name) : "Carte envoyée";
+        const state = document.createElement("p");
+        state.className = "muted";
+        state.textContent = "Destinataire : " + (recipientNames.get(transfer.recipient_id) || "Membre") +
+          (transfer.status === "disputed" ? " · Litige : " + (transfer.dispute_reason || "En examen") : " · En attente de confirmation");
+        row.append(label,state);
+        myDonationsContent.appendChild(row);
+      });
+    }
   }
 
   // MES CARTES : inventaire personnel et quantités de doublons
