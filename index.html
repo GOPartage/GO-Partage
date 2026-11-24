@@ -2142,19 +2142,28 @@
                   importChecked.add(matchedCard.id);
                   const countCanvas = document.createElement("canvas");
                   // On isole le chiffre à droite du signe + pour éviter de lire le + comme un 4.
-                  const cx = Math.round(bitmap.width * (nameXs[col] + 0.035));
-                  const cy = Math.round(bitmap.height * countTop[row]);
-                  const cw = Math.round(bitmap.width * 0.04);
-                  const ch = Math.round(bitmap.height * 0.033);
-                  countCanvas.width = cw * 7; countCanvas.height = ch * 7;
+                  // Lire toute l'étiquette blanche inclinée (+N), pas seulement le bord du chiffre.
+                  const cx = Math.round(bitmap.width * [0.08, 0.335, 0.585][col]);
+                  const cy = Math.round(bitmap.height * (countTop[row] - 0.004));
+                  const cw = Math.round(bitmap.width * 0.09);
+                  const ch = Math.round(bitmap.height * 0.043);
+                  countCanvas.width = cw * 8; countCanvas.height = ch * 8;
                   const countCtx = countCanvas.getContext("2d", {willReadFrequently:true});
                   countCtx.imageSmoothingEnabled = true;
                   countCtx.imageSmoothingQuality = "high";
                   countCtx.drawImage(source,cx,cy,cw,ch,0,0,countCanvas.width,countCanvas.height);
-                  await worker.setParameters({ tessedit_pageseg_mode: "10", tessedit_char_whitelist: "0123456789" });
+                  const countPixels = countCtx.getImageData(0,0,countCanvas.width,countCanvas.height);
+                  const countData = countPixels.data;
+                  for (let p=0;p<countData.length;p+=4) {
+                    const gray=countData[p]*0.299+countData[p+1]*0.587+countData[p+2]*0.114;
+                    const value=gray<155?0:255;
+                    countData[p]=countData[p+1]=countData[p+2]=value;
+                  }
+                  countCtx.putImageData(countPixels,0,0);
+                  await worker.setParameters({ tessedit_pageseg_mode: "8", tessedit_char_whitelist: "0123456789", classify_bln_numeric_mode: "1" });
                   const countResult = await worker.recognize(countCanvas);
                   const countText = countResult.data.text || "";
-                  const countMatch = countText.match(/[+＋]?\s*(\d{1,2})/);
+                  const countMatch = countText.match(/(\d{1,2})/);
                   const doubles = countMatch ? Math.min(99, Number(countMatch[1])) : 0;
                   importQuantities.set(matchedCard.id, Math.max(importQuantities.get(matchedCard.id) || 0, doubles));
                   textParts.push("[DOUBLES CARTE " + zone + "] " + countText);
