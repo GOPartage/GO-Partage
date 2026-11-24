@@ -328,7 +328,8 @@
         background-size:100% auto;
         background-position:center top;
         background-attachment:scroll;
-        background-repeat:repeat-y;
+        background-repeat:no-repeat;
+        background-color:#8fcde9;
       }
       .hero-copy { padding:18px 14px 16px; border-radius:17px; }
       .brand-title { font-size:32px; }
@@ -505,6 +506,7 @@
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: {
+      flowType: "pkce",
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
@@ -1746,7 +1748,7 @@
     if (ownedError) { myCardsContent.textContent = "Erreur de chargement de ton inventaire : " + ownedError.message; return; }
     const quantities = new Map(ownedRows.map(row => [row.card_id, row.quantity]));
     let filter = "all";
-    let importImage = null;
+    let importImages = [];
     let importText = "";
     let importError = "";
     let importMatches = new Set();
@@ -1804,76 +1806,105 @@
       const importBox = document.createElement("div");
       importBox.className = "import-box";
       const importTitle = document.createElement("h3");
-      importTitle.textContent = "📷 Importer une capture d’écran";
+      importTitle.textContent = "📷 Scanner plusieurs sets";
       importBox.appendChild(importTitle);
       const importHelp = document.createElement("p");
       importHelp.className = "muted";
-      importHelp.textContent = "Choisis une capture de cette page de 9 cartes. La reconnaissance propose les cartes possédées, puis tu vérifies avant l’enregistrement.";
+      importHelp.textContent = "Sélectionne plusieurs captures de tes albums. GO Partage cherchera les cartes reconnues dans tous les sets, puis tu pourras vérifier avant l’enregistrement.";
       importBox.appendChild(importHelp);
       const fileInput = document.createElement("input");
-      fileInput.type = "file"; fileInput.accept = "image/*";
+      fileInput.type = "file"; fileInput.accept = "image/*"; fileInput.multiple = true;
       fileInput.addEventListener("change", () => {
-        importImage = fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+        importImages = Array.from(fileInput.files || []);
         importText = ""; importError = ""; importMatches = new Set(); importChecked = new Set();
         render();
       });
       importBox.appendChild(fileInput);
-      if (importImage) {
-        const preview = document.createElement("img");
-        preview.className = "import-preview";
-        preview.alt = "Aperçu de la capture sélectionnée";
-        preview.src = URL.createObjectURL(importImage);
-        importBox.appendChild(preview);
+      if (importImages.length) {
+        const fileLabel = document.createElement("p");
+        fileLabel.className = "import-status";
+        fileLabel.textContent = importImages.length + " capture(s) sélectionnée(s) : " + importImages.map(file => file.name).join(", ");
+        importBox.appendChild(fileLabel);
       }
       const scanButton = document.createElement("button");
       scanButton.className = "small-button";
-      scanButton.textContent = importBusy ? "Analyse en cours..." : "Analyser la capture";
-      scanButton.disabled = !importImage || importBusy;
+      scanButton.textContent = importBusy ? "Analyse en cours..." : "Analyser toutes les captures";
+      scanButton.disabled = !importImages.length || importBusy;
       const importStatus = document.createElement("p");
       importStatus.className = "import-status";
-      importStatus.textContent = importBusy ? "Lecture de la capture en cours..." : importError ? "Erreur de reconnaissance : " + importError : importText ? "Texte détecté : " + importText.slice(0, 500) : "L’analyse peut prendre quelques instants selon ton appareil.";
+      importStatus.textContent = importBusy ? "Lecture des captures en cours. Garde cette page ouverte..." : importError ? "Erreur de reconnaissance : " + importError : importText ? "Analyse terminée. Vérifie les cartes proposées ci-dessous." : "Tu peux sélectionner plusieurs captures, même de sets différents.";
       importBox.appendChild(importStatus);
       scanButton.addEventListener("click", async () => {
-        if (!importImage || importBusy) return;
-        importBusy = true; importError = ""; render();
+        if (!importImages.length || importBusy) return;
+        importBusy = true; importError = ""; importText = ""; importMatches = new Set(); importChecked = new Set(); render();
+        let worker = null;
         try {
           const Tesseract = await import("https://cdn.jsdelivr.net/npm/tesseract.js@5/+esm");
-          const worker = await Tesseract.createWorker("eng");
-          const result = await worker.recognize(importImage);
-          await worker.terminate();
-          importText = result.data.text || "";
+          worker = await Tesseract.createWorker("eng");
+          const textParts = [];
+          for (let i = 0; i < importImages.length; i++) {
+            const result = await worker.recognize(importImages[i]);
+            textParts.push(result.data.text || "");
+          }
+          importText = textParts.join("\n");
           const normalizedText = normalizeForMatch(importText);
-          importMatches = new Set();
-          setCards.forEach(card => {
+          const ocrWords = normalizedText.match(/[a-z0-9]{3,}/g) || [];
+          const distance = (a, b) => {
+            const row = Array.from({length:b.length + 1}, (_,i) => i);
+            for (let i = 1; i <= a.length; i++) {
+              let previous = row[0]; row[0] = i;
+              for (let j = 1; j <= b.length; j++) {
+                const saved = row[j];
+                row[j] = Math.min(row[j] + 1, row[j - 1] + 1, previous + (a[i - 1] === b[j - 1] ? 0 : 1));
+                previous = saved;
+              }
+            }
+            return row[b.length];
+          };
+          cards.forEach(card => {
             const names = [card.name, card.name_fr].filter(Boolean);
-            if (names.some(name => {
-              const n = normalizeForMatch(name);
-              return n.length >= 4 && normalizedText.includes(n);
-            })) importMatches.add(card.id);
+            const matched = names.some(name => {
+              const normalizedName = normalizeForMatch(name);
+              if (normalizedName.length >= 4 && normalizedText.includes(normalizedName)) return true;
+              const tokens = String(name).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().match(/[a-z0-9]{3,}/g) || [];
+              if (!tokens.length) return false;
+              let found = 0;
+              for (const token of tokens) {
+                const maxDistance = token.length >= 8 ? 2 : 1;
+                if (ocrWords.some(word => word === token || (Math.abs(word.length-token.length) <= maxDistance && distance(token,word) <= maxDistance))) found++;
+              }
+              return tokens.length === 1 ? found === 1 : found / tokens.length >= 0.75;
+            });
+            if (matched) importMatches.add(card.id);
           });
           importChecked = new Set(importMatches);
+          if (!importMatches.size) importError = "Aucune carte reconnue. Essaie des captures où les noms des cartes sont bien visibles.";
         } catch (e) {
           importError = e && e.message ? e.message : String(e);
           importText = "";
+        } finally {
+          if (worker) await worker.terminate().catch(() => {});
+          importBusy = false; render();
         }
-        importBusy = false; render();
       });
       importBox.appendChild(scanButton);
       if (importText || importError) {
         const resultLabel = document.createElement("p");
         resultLabel.className = "import-status";
-        resultLabel.textContent = importMatches.size + " carte(s) reconnue(s) sur cette page. Coche ou décoche pour corriger.";
+        resultLabel.textContent = importMatches.size + " carte(s) reconnue(s) sur l’ensemble de l’album. Vérifie les cases avant l’enregistrement.";
         importBox.appendChild(resultLabel);
         const choices = document.createElement("div");
-        setCards.forEach(card => {
+        cards.filter(card => importMatches.has(card.id) || importChecked.has(card.id)).forEach(card => {
           const label = document.createElement("label"); label.className = "import-choice";
           const checkbox = document.createElement("input"); checkbox.type = "checkbox";
           checkbox.checked = importChecked.has(card.id);
           checkbox.addEventListener("change", () => {
             if (checkbox.checked) importChecked.add(card.id); else importChecked.delete(card.id);
           });
+          const setName = sets.find(item => item.id === card.set_id);
           const textLabel = document.createElement("span");
-          textLabel.textContent = "#" + card.card_number + " — " + (card.name_fr || card.name) +
+          textLabel.textContent = (setName ? (setName.name_fr || setName.name) + " · " : "") +
+            "#" + card.card_number + " — " + (card.name_fr || card.name) +
             (importMatches.has(card.id) ? " ✓ reconnue" : "");
           label.append(checkbox, textLabel); choices.appendChild(label);
         });
@@ -1882,7 +1913,7 @@
         saveImport.className = "small-button";
         saveImport.textContent = "Enregistrer les cartes cochées";
         saveImport.addEventListener("click", async () => {
-          const selected = setCards.filter(card => importChecked.has(card.id) && (quantities.get(card.id) || 0) === 0);
+          const selected = cards.filter(card => importChecked.has(card.id) && (quantities.get(card.id) || 0) === 0);
           if (!selected.length) { alert("Aucune nouvelle carte à ajouter."); return; }
           saveImport.disabled = true; saveImport.textContent = "Enregistrement...";
           for (const card of selected) {
@@ -1897,7 +1928,7 @@
             }
             quantities.set(card.id, 1);
           }
-          importImage = null; importText = ""; importError = ""; importMatches = new Set(); importChecked = new Set();
+          importImages = []; importText = ""; importError = ""; importMatches = new Set(); importChecked = new Set();
           alert(selected.length + " carte(s) ajoutée(s) à Mes cartes.");
           render();
         });
@@ -1941,13 +1972,20 @@
 
   // GESTION DE LA SESSION
 
-  supabase.auth.onAuthStateChange((_event, session) => {
+  // Une seule source de vérité pour l'affichage de la connexion.
+  // Les opérations Supabase secondaires sont lancées hors du callback Auth.
+  supabase.auth.onAuthStateChange((event, session) => {
     displaySession(session);
-    if (session) loadAdminAccess(session.user.id);
+    if (event === "SIGNED_IN" && session) {
+      Promise.resolve().then(() => loadAdminAccess(session.user.id));
+    }
   });
 
-  const { data: { session } } = await supabase.auth.getSession();
-
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  const session = sessionData ? sessionData.session : null;
+  if (sessionError) {
+    status.textContent = "Impossible de restaurer la connexion : " + sessionError.message;
+  }
   displaySession(session);
   if (session) await loadAdminAccess(session.user.id);
 
