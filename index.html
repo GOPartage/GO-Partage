@@ -651,6 +651,7 @@
       suggestionsBox.textContent = "";
       return;
     }
+    await loadAdminDonationDisputes();
     const { data: albums, error: albumsError } = await supabase.from("albums")
       .select("id,name,season,is_active").order("created_at", { ascending: false });
     if (albumsError) {
@@ -694,7 +695,6 @@
       ...(cards || []).map(item => ({...item, suggestionKind:"card"})),
       ...(ideas || []).map(item => ({...item, suggestionKind:"general"}))
     ].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
-    await loadAdminDonationDisputes();
     if (!allItems.length) {
       suggestionsBox.textContent = "Aucune suggestion pour le moment.";
       return;
