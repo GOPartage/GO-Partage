@@ -2144,12 +2144,12 @@
                   // Coordonnées exactes des badges +N observés sur la capture 942 × 2048.
                   // Chaque badge est en bas à gauche de sa vignette. Les anciennes
                   // coordonnées des colonnes 2 et 3 étaient trop à gauche.
-                  const countXs = [0.080, 0.333, 0.585];
-                  const countYs = [0.322, 0.478, 0.634];
+                  const countXs = [0.075, 0.327, 0.580];
+                  const countYs = [0.365, 0.520, 0.675];
                   const cx = Math.round(bitmap.width * countXs[col]);
                   const cy = Math.round(bitmap.height * countYs[row]);
-                  const cw = Math.round(bitmap.width * 0.105);
-                  const ch = Math.round(bitmap.height * 0.035);
+                  const cw = Math.round(bitmap.width * 0.12);
+                  const ch = Math.round(bitmap.height * 0.040);
                   countCanvas.width = cw * 8; countCanvas.height = ch * 8;
                   const countCtx = countCanvas.getContext("2d", {willReadFrequently:true});
                   countCtx.imageSmoothingEnabled = true;
