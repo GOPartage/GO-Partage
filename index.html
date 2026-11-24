@@ -420,16 +420,30 @@
 
   <section class="panel" id="suggestionsPanel" hidden>
     <button class="small-button" id="backFromSuggestionsButton">← Retour</button>
-    <h2>💡 Suggérer une carte</h2>
-    <p class="muted">Une carte ou un set manque dans l’album ? Envoie une suggestion à l’équipe GO Partage pour vérification.</p>
+    <h2>💡 Suggestions et idées</h2>
+    <p class="muted">Tu peux signaler une carte ou proposer une amélioration, une nouvelle fonctionnalité ou toute autre idée pour GO Partage.</p>
     <div class="set" style="max-width:560px;margin:14px auto;text-align:left">
-      <label>Nom de l’album<input id="suggestAlbum" maxlength="100" required placeholder="Nom de l’album" style="display:block;width:100%;box-sizing:border-box;padding:10px;margin:5px 0 12px;border:1px solid #c8a26a;border-radius:8px"></label>
-      <label>Nom du set<input id="suggestSet" maxlength="100" required placeholder="Nom du set" style="display:block;width:100%;box-sizing:border-box;padding:10px;margin:5px 0 12px;border:1px solid #c8a26a;border-radius:8px"></label>
-      <label>Numéro de la carte<input id="suggestNumber" maxlength="20" required placeholder="Ex. 7" style="display:block;width:100%;box-sizing:border-box;padding:10px;margin:5px 0 12px;border:1px solid #c8a26a;border-radius:8px"></label>
-      <label>Nom de la carte<input id="suggestCardName" maxlength="120" required placeholder="Nom de la carte" style="display:block;width:100%;box-sizing:border-box;padding:10px;margin:5px 0 12px;border:1px solid #c8a26a;border-radius:8px"></label>
-      <label>Rareté (facultatif)<input id="suggestRarity" maxlength="40" placeholder="Ex. 4 étoiles" style="display:block;width:100%;box-sizing:border-box;padding:10px;margin:5px 0 12px;border:1px solid #c8a26a;border-radius:8px"></label>
-      <label style="display:flex;align-items:center;gap:8px;margin:8px 0"><input id="suggestGold" type="checkbox"> Carte dorée</label>
-      <label>Précisions (facultatif)<textarea id="suggestNotes" maxlength="500" rows="3" placeholder="Informations utiles..." style="display:block;width:100%;box-sizing:border-box;padding:10px;margin:5px 0 12px;border:1px solid #c8a26a;border-radius:8px"></textarea></label>
+      <label>Type de suggestion
+        <select id="suggestionType" style="display:block;width:100%;box-sizing:border-box;padding:10px;margin:5px 0 12px;border:1px solid #c8a26a;border-radius:8px">
+          <option value="card">Signaler une carte ou un set manquant</option>
+          <option value="improvement">Proposer une amélioration</option>
+          <option value="idea">Proposer une nouvelle idée ou fonctionnalité</option>
+          <option value="other">Autre suggestion</option>
+        </select>
+      </label>
+      <div id="cardSuggestionFields">
+        <label>Nom de l’album<input id="suggestAlbum" maxlength="100" placeholder="Nom de l’album" style="display:block;width:100%;box-sizing:border-box;padding:10px;margin:5px 0 12px;border:1px solid #c8a26a;border-radius:8px"></label>
+        <label>Nom du set<input id="suggestSet" maxlength="100" placeholder="Nom du set" style="display:block;width:100%;box-sizing:border-box;padding:10px;margin:5px 0 12px;border:1px solid #c8a26a;border-radius:8px"></label>
+        <label>Numéro de la carte<input id="suggestNumber" maxlength="20" placeholder="Ex. 7" style="display:block;width:100%;box-sizing:border-box;padding:10px;margin:5px 0 12px;border:1px solid #c8a26a;border-radius:8px"></label>
+        <label>Nom de la carte<input id="suggestCardName" maxlength="120" placeholder="Nom de la carte" style="display:block;width:100%;box-sizing:border-box;padding:10px;margin:5px 0 12px;border:1px solid #c8a26a;border-radius:8px"></label>
+        <label>Rareté (facultatif)<input id="suggestRarity" maxlength="40" placeholder="Ex. 4 étoiles" style="display:block;width:100%;box-sizing:border-box;padding:10px;margin:5px 0 12px;border:1px solid #c8a26a;border-radius:8px"></label>
+        <label style="display:flex;align-items:center;gap:8px;margin:8px 0"><input id="suggestGold" type="checkbox"> Carte dorée</label>
+        <label>Précisions (facultatif)<textarea id="suggestNotes" maxlength="500" rows="3" placeholder="Informations utiles..." style="display:block;width:100%;box-sizing:border-box;padding:10px;margin:5px 0 12px;border:1px solid #c8a26a;border-radius:8px"></textarea></label>
+      </div>
+      <div id="generalSuggestionFields" hidden>
+        <label>Titre de ton idée<input id="generalSuggestionTitle" maxlength="120" placeholder="Ex. Ajouter un filtre dans Mes cartes" style="display:block;width:100%;box-sizing:border-box;padding:10px;margin:5px 0 12px;border:1px solid #c8a26a;border-radius:8px"></label>
+        <label>Décris ton idée<textarea id="generalSuggestionDescription" maxlength="1500" rows="5" placeholder="Explique ton idée ou l’amélioration souhaitée..." style="display:block;width:100%;box-sizing:border-box;padding:10px;margin:5px 0 12px;border:1px solid #c8a26a;border-radius:8px"></textarea></label>
+      </div>
       <button id="submitSuggestionButton">Envoyer ma suggestion</button>
       <p id="suggestionFeedback" class="muted" role="status"></p>
     </div>
@@ -650,36 +664,53 @@
       if (!albums || !albums.length) albumsBox.append("Aucun album enregistré.");
     }
 
-    const { data: suggestions, error: suggestionsError } = await supabase.from("card_suggestions")
-      .select("id,submitted_by,album_name,set_name,card_number,card_name,rarity,is_gold,notes,status,created_at")
-      .order("created_at", { ascending: false }).limit(100);
-    if (suggestionsError) {
-      suggestionsBox.textContent = "Impossible de charger les suggestions : " + suggestionsError.message;
+    const [{ data: cards, error: cardsError }, { data: ideas, error: ideasError }] = await Promise.all([
+      supabase.from("card_suggestions")
+        .select("id,submitted_by,album_name,set_name,card_number,card_name,rarity,is_gold,notes,status,created_at")
+        .order("created_at", { ascending: false }).limit(100),
+      supabase.from("community_suggestions")
+        .select("id,submitted_by,category,title,description,status,created_at")
+        .order("created_at", { ascending: false }).limit(100)
+    ]);
+    if (cardsError || ideasError) {
+      suggestionsBox.textContent = "Impossible de charger toutes les suggestions : " +
+        [cardsError && cardsError.message, ideasError && ideasError.message].filter(Boolean).join(" · ");
       return;
     }
+    const allMemberIds = [...new Set([...(cards || []), ...(ideas || [])].map(item => item.submitted_by).filter(Boolean))];
+    let memberNames = new Map();
+    if (allMemberIds.length) {
+      const { data: members } = await supabase.from("profiles")
+        .select("id,display_name").in("id", allMemberIds);
+      memberNames = new Map((members || []).map(member => [member.id, member.display_name]));
+    }
     suggestionsBox.replaceChildren();
-    if (!suggestions || !suggestions.length) {
+    const allItems = [
+      ...(cards || []).map(item => ({...item, suggestionKind:"card"})),
+      ...(ideas || []).map(item => ({...item, suggestionKind:"general"}))
+    ].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+    if (!allItems.length) {
       suggestionsBox.textContent = "Aucune suggestion pour le moment.";
       return;
     }
-    const memberIds = [...new Set(suggestions.map(item => item.submitted_by).filter(Boolean))];
-    let memberNames = new Map();
-    if (memberIds.length) {
-      const { data: members } = await supabase.from("profiles")
-        .select("id,display_name").in("id", memberIds);
-      memberNames = new Map((members || []).map(member => [member.id, member.display_name]));
-    }
-    suggestions.forEach(item => {
+    allItems.forEach(item => {
       const card = document.createElement("div");
       card.className = "set";
       const title = document.createElement("strong");
-      title.textContent = item.album_name + " · " + item.set_name + " · #" +
-        item.card_number + " " + item.card_name;
       const details = document.createElement("p");
       details.className = "muted";
-      details.textContent = "Proposée par : " + (memberNames.get(item.submitted_by) || "Membre") +
-        (item.rarity ? " · " + item.rarity : "") + (item.is_gold ? " · Dorée" : "") +
-        (item.notes ? " · " + item.notes : "");
+      if (item.suggestionKind === "card") {
+        title.textContent = "🃏 Carte · " + item.album_name + " · " + item.set_name + " · #" +
+          item.card_number + " " + item.card_name;
+        details.textContent = "Proposée par : " + (memberNames.get(item.submitted_by) || "Membre") +
+          (item.rarity ? " · " + item.rarity : "") + (item.is_gold ? " · Dorée" : "") +
+          (item.notes ? " · " + item.notes : "");
+      } else {
+        const labels = {improvement:"Amélioration",idea:"Nouvelle idée",other:"Autre"};
+        title.textContent = "💡 " + (labels[item.category] || "Suggestion") + " · " + item.title;
+        details.textContent = "Proposée par : " + (memberNames.get(item.submitted_by) || "Membre") +
+          " — " + item.description;
+      }
       const state = document.createElement("p");
       state.className = "muted";
       state.textContent = item.status === "pending" ? "⏳ En attente" :
@@ -692,7 +723,8 @@
           action.textContent = decision.label;
           action.addEventListener("click", async () => {
             action.disabled = true;
-            const { error } = await supabase.from("card_suggestions").update({
+            const table = item.suggestionKind === "card" ? "card_suggestions" : "community_suggestions";
+            const { error } = await supabase.from(table).update({
               status: decision.value,
               reviewed_by: user.id,
               reviewed_at: new Date().toISOString()
@@ -743,52 +775,101 @@
     list.textContent = "Chargement de tes suggestions...";
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { list.textContent = "Reconnecte-toi pour envoyer une suggestion."; return; }
-    const { data, error } = await supabase.from("card_suggestions")
-      .select("id, album_name, set_name, card_number, card_name, status, created_at")
-      .eq("submitted_by", user.id).order("created_at", { ascending: false }).limit(30);
-    if (error) { list.textContent = "Impossible de charger tes suggestions : " + error.message; return; }
+    const [{ data: cards, error: cardsError }, { data: ideas, error: ideasError }] = await Promise.all([
+      supabase.from("card_suggestions")
+        .select("id,album_name,set_name,card_number,card_name,status,created_at")
+        .eq("submitted_by", user.id).order("created_at", { ascending: false }).limit(30),
+      supabase.from("community_suggestions")
+        .select("id,category,title,description,status,created_at")
+        .eq("submitted_by", user.id).order("created_at", { ascending: false }).limit(30)
+    ]);
+    if (cardsError || ideasError) {
+      list.textContent = "Impossible de charger tes suggestions : " +
+        [cardsError && cardsError.message, ideasError && ideasError.message].filter(Boolean).join(" · ");
+      return;
+    }
     list.replaceChildren();
     const title = document.createElement("h3");
     title.textContent = "Mes suggestions envoyées";
     list.appendChild(title);
-    if (!data || !data.length) {
+    const allItems = [
+      ...(cards || []).map(row => ({...row, kind:"card"})),
+      ...(ideas || []).map(row => ({...row, kind:"general"}))
+    ].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+    if (!allItems.length) {
       const empty = document.createElement("p"); empty.className = "muted";
       empty.textContent = "Tu n’as pas encore envoyé de suggestion."; list.appendChild(empty); return;
     }
-    data.forEach(row => {
+    allItems.forEach(row => {
       const item = document.createElement("div"); item.className = "set";
       const name = document.createElement("strong");
-      name.textContent = row.album_name + " · " + row.set_name + " · #" + row.card_number + " " + row.card_name;
+      name.textContent = row.kind === "card"
+        ? "🃏 " + row.album_name + " · " + row.set_name + " · #" + row.card_number + " " + row.card_name
+        : "💡 " + row.title;
+      const description = document.createElement("p"); description.className = "muted";
+      description.textContent = row.kind === "general" ? row.description : "Signalement de carte ou de set manquant.";
       const state = document.createElement("p"); state.className = "muted";
-      state.textContent = row.status === "pending" ? "En attente de vérification" : row.status === "approved" ? "Suggestion approuvée" : "Suggestion refusée";
-      item.append(name,state); list.appendChild(item);
+      state.textContent = row.status === "pending" ? "⏳ En attente de vérification" :
+        row.status === "approved" ? "✅ Suggestion approuvée" : "❌ Suggestion refusée";
+      item.append(name, description, state); list.appendChild(item);
     });
   }
 
+  document.getElementById("suggestionType").addEventListener("change", event => {
+    const isCard = event.target.value === "card";
+    document.getElementById("cardSuggestionFields").hidden = !isCard;
+    document.getElementById("generalSuggestionFields").hidden = isCard;
+    document.getElementById("submitSuggestionButton").textContent = isCard ? "Envoyer ma suggestion de carte" : "Envoyer mon idée";
+  });
+
   document.getElementById("submitSuggestionButton").addEventListener("click", async () => {
     const feedback = document.getElementById("suggestionFeedback");
-    const values = {
-      album_name: document.getElementById("suggestAlbum").value.trim(),
-      set_name: document.getElementById("suggestSet").value.trim(),
-      card_number: document.getElementById("suggestNumber").value.trim(),
-      card_name: document.getElementById("suggestCardName").value.trim(),
-      rarity: document.getElementById("suggestRarity").value.trim() || null,
-      is_gold: document.getElementById("suggestGold").checked,
-      notes: document.getElementById("suggestNotes").value.trim() || null
-    };
-    if (!values.album_name || !values.set_name || !values.card_number || !values.card_name) {
-      feedback.textContent = "Renseigne l’album, le set, le numéro et le nom de la carte."; return;
-    }
+    const type = document.getElementById("suggestionType").value;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { feedback.textContent = "Reconnecte-toi pour envoyer ta suggestion."; return; }
     const button = document.getElementById("submitSuggestionButton");
-    button.disabled = true; feedback.textContent = "Envoi en cours...";
-    const { error } = await supabase.from("card_suggestions").insert({ ...values, submitted_by: user.id });
+    button.disabled = true;
+    feedback.textContent = "Envoi en cours...";
+    let error = null;
+    if (type === "card") {
+      const values = {
+        album_name: document.getElementById("suggestAlbum").value.trim(),
+        set_name: document.getElementById("suggestSet").value.trim(),
+        card_number: document.getElementById("suggestNumber").value.trim(),
+        card_name: document.getElementById("suggestCardName").value.trim(),
+        rarity: document.getElementById("suggestRarity").value.trim() || null,
+        is_gold: document.getElementById("suggestGold").checked,
+        notes: document.getElementById("suggestNotes").value.trim() || null
+      };
+      if (!values.album_name || !values.set_name || !values.card_number || !values.card_name) {
+        button.disabled = false;
+        feedback.textContent = "Renseigne l’album, le set, le numéro et le nom de la carte.";
+        return;
+      }
+      ({ error } = await supabase.from("card_suggestions").insert({ ...values, submitted_by: user.id }));
+      if (!error) {
+        ["suggestAlbum","suggestSet","suggestNumber","suggestCardName","suggestRarity","suggestNotes"].forEach(id => document.getElementById(id).value = "");
+        document.getElementById("suggestGold").checked = false;
+      }
+    } else {
+      const title = document.getElementById("generalSuggestionTitle").value.trim();
+      const description = document.getElementById("generalSuggestionDescription").value.trim();
+      if (title.length < 3 || description.length < 5) {
+        button.disabled = false;
+        feedback.textContent = "Ajoute un titre et une description un peu plus détaillée.";
+        return;
+      }
+      ({ error } = await supabase.from("community_suggestions").insert({
+        submitted_by: user.id, category: type, title, description
+      }));
+      if (!error) {
+        document.getElementById("generalSuggestionTitle").value = "";
+        document.getElementById("generalSuggestionDescription").value = "";
+      }
+    }
     button.disabled = false;
     if (error) { feedback.textContent = "Envoi impossible : " + error.message; return; }
-    feedback.textContent = "Merci ! Ta suggestion a été envoyée à l’équipe pour vérification.";
-    ["suggestAlbum","suggestSet","suggestNumber","suggestCardName","suggestRarity","suggestNotes"].forEach(id => document.getElementById(id).value = "");
-    document.getElementById("suggestGold").checked = false;
+    feedback.textContent = "Merci ! Ta suggestion a été envoyée à l’équipe GO Partage pour examen.";
     await loadMySuggestions();
   });
 
