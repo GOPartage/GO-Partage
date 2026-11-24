@@ -19,7 +19,7 @@
       font-family: Arial, sans-serif;
 
       background-color: #26394b;
-      background-image: url('/GO-Partage/fond-go-partage.svg?v=5');
+      background-image: url('/GO-Partage/fond-go-partage.svg?v=6');
       background-position: center center;
       background-size: cover;
       background-attachment: fixed;
@@ -515,10 +515,11 @@
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) { myDonationsContent.textContent = "Reconnecte-toi pour gérer tes dons."; return; }
 
-    const { data: albums, error: albumError } = await supabase.from("albums").select("id, name").eq("is_active", true);
+    const { data: albums, error: albumError } = await supabase.from("albums").select("id, name, is_active, created_at").order("created_at", { ascending: false });
     if (albumError) { myDonationsContent.textContent = "Erreur albums : " + albumError.message; return; }
-    const album = albums.find(a => a.name === "Monster Mash");
-    if (!album) { myDonationsContent.textContent = "Aucun album actif trouvé."; return; }
+    const album = (albums || []).find(a => a.is_active);
+    if (!album) { myDonationsContent.textContent = "Aucun album actif pour le moment."; return; }
+    const newestAlbum = albums && albums.length ? albums[0] : null;
 
     const { data: sets, error: setsError } = await supabase.from("card_sets").select("id, name, name_fr, sort_order").eq("album_id", album.id).order("sort_order", { ascending: true });
     if (setsError) { myDonationsContent.textContent = "Erreur collections : " + setsError.message; return; }
@@ -636,7 +637,20 @@
       myDonationsContent.appendChild(item);
     });
 
-    // BANQUE DES DONS : offres publiées par les autres membres
+    // BANQUE DES DONS : visible uniquement quand le dernier album est activé et que ses cartes sont importées
+    let communityBankReady = false;
+    if (newestAlbum && newestAlbum.id === album.id) {
+      const { data: latestSets, error: latestSetsError } = await supabase
+        .from("card_sets").select("id").eq("album_id", newestAlbum.id);
+      if (!latestSetsError && latestSets && latestSets.length > 0) {
+        const { count: latestCardsCount, error: latestCardsError } = await supabase
+          .from("cards").select("id", { count: "exact", head: true })
+          .in("set_id", latestSets.map(s => s.id)).eq("is_approved", true);
+        communityBankReady = !latestCardsError && latestCardsCount > 0;
+      }
+    }
+    if (communityBankReady) {
+    // BANQUE DES DONS : visible quand les sets du dernier album sont disponibles
     const bankTitle = document.createElement("h3");
     bankTitle.textContent = "🏦 Banque des dons de la communauté";
     myDonationsContent.appendChild(bankTitle);
@@ -674,7 +688,14 @@
       empty.textContent = "Aucun don disponible pour le moment. Reviens un peu plus tard !";
       myDonationsContent.appendChild(empty);
     } else {
-      const donorIds = [...new Set(communityOffers.map(o => o.member_id))];
+      const missingOnlyOffers = communityOffers.filter(offer => (quantities.get(offer.card_id) || 0) === 0);
+      if (!missingOnlyOffers.length) {
+        const empty = document.createElement("p");
+        empty.className = "muted";
+        empty.textContent = "Aucun don disponible pour les cartes qui te manquent actuellement.";
+        myDonationsContent.appendChild(empty);
+      }
+      const donorIds = [...new Set(missingOnlyOffers.map(o => o.member_id))];
       const { data: donorProfiles, error: donorProfilesError } = await supabase
         .from("profiles").select("id, display_name").in("id", donorIds);
       const donorNames = new Map((donorProfiles || []).map(p => [p.id, p.display_name || "Membre GO Partage"]));
@@ -688,7 +709,7 @@
         msg.textContent = "Les informations des dons n'ont pas pu être entièrement chargées.";
         myDonationsContent.appendChild(msg);
       }
-      communityOffers.forEach(offer => {
+      missingOnlyOffers.forEach(offer => {
         const card = cardById.get(offer.card_id);
         if (!card) return;
         const set = setById.get(card.set_id);
@@ -730,6 +751,13 @@
         item.append(name, detail, ask, askInfo);
         myDonationsContent.appendChild(item);
       });
+    }
+
+    } else {
+      const hidden = document.createElement("p");
+      hidden.className = "muted";
+      hidden.textContent = "La Banque des dons sera disponible dès que les collections du nouvel album seront entièrement mises à jour.";
+      myDonationsContent.appendChild(hidden);
     }
 
     // Demandes reçues sur les cartes que je propose : le donneur choisit le bénéficiaire
