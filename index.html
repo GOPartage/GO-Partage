@@ -327,7 +327,7 @@
 
       <button class="tile" id="myCardsButton">🃏<br>Mes cartes</button>
 
-      <button class="tile" disabled>🎁<br>Mes dons</button>
+      <button class="tile" id="myDonationsButton">🎁<br>Mes dons</button>
 
       <button class="tile" disabled>👤<br>Mon compte</button>
 
@@ -344,6 +344,13 @@
     <h2>🃏 Mes cartes</h2>
     <p class="muted">Indique combien d’exemplaires tu possèdes. 0 = carte manquante.</p>
     <div id="myCardsContent">Chargement de tes cartes...</div>
+  </section>
+
+  <section class="panel" id="myDonationsPanel" hidden>
+    <button class="small-button" id="backFromDonationsButton">← Retour</button>
+    <h2>🎁 Mes dons</h2>
+    <p class="muted">Propose gratuitement tes cartes en double à la communauté.</p>
+    <div id="myDonationsContent">Chargement de tes dons...</div>
   </section>
 
 </main>
@@ -371,6 +378,8 @@
   const dashboard = document.getElementById("dashboard");
   const myCardsPanel = document.getElementById("myCardsPanel");
   const myCardsContent = document.getElementById("myCardsContent");
+  const myDonationsPanel = document.getElementById("myDonationsPanel");
+  const myDonationsContent = document.getElementById("myDonationsContent");
 
   const status = document.getElementById("status");
 
@@ -400,6 +409,7 @@
 
       dashboard.hidden = true;
       myCardsPanel.hidden = true;
+      myDonationsPanel.hidden = true;
 
     }
 
@@ -463,6 +473,146 @@
   });
 
 
+
+  document.getElementById("myDonationsButton").addEventListener("click", async () => {
+    dashboard.hidden = true;
+    myDonationsPanel.hidden = false;
+    await loadMyDonations();
+  });
+
+  document.getElementById("backFromDonationsButton").addEventListener("click", () => {
+    myDonationsPanel.hidden = true;
+    dashboard.hidden = false;
+  });
+
+  // MES DONS : publier et consulter ses propositions de dons
+  async function loadMyDonations() {
+    myDonationsContent.textContent = "Chargement de tes dons...";
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) { myDonationsContent.textContent = "Reconnecte-toi pour gérer tes dons."; return; }
+
+    const { data: albums, error: albumError } = await supabase.from("albums").select("id, name").eq("is_active", true);
+    if (albumError) { myDonationsContent.textContent = "Erreur albums : " + albumError.message; return; }
+    const album = albums.find(a => a.name === "Monster Mash");
+    if (!album) { myDonationsContent.textContent = "Aucun album actif trouvé."; return; }
+
+    const { data: sets, error: setsError } = await supabase.from("card_sets").select("id, name, name_fr, sort_order").eq("album_id", album.id).order("sort_order", { ascending: true });
+    if (setsError) { myDonationsContent.textContent = "Erreur collections : " + setsError.message; return; }
+    const setIds = sets.map(s => s.id);
+    const { data: cards, error: cardsError } = await supabase.from("cards").select("id, set_id, card_number, name, name_fr, is_tradable_now").in("set_id", setIds).eq("is_approved", true).order("card_number", { ascending: true });
+    if (cardsError) { myDonationsContent.textContent = "Erreur cartes : " + cardsError.message; return; }
+    const { data: ownedRows, error: ownedError } = await supabase.from("member_cards").select("card_id, quantity").eq("member_id", user.id);
+    if (ownedError) { myDonationsContent.textContent = "Erreur inventaire : " + ownedError.message; return; }
+    const { data: offers, error: offersError } = await supabase.from("card_offers").select("id, card_id, quantity, created_at").eq("member_id", user.id).eq("status", "active").order("created_at", { ascending: false });
+    if (offersError) { myDonationsContent.textContent = "Erreur de chargement de tes propositions : " + offersError.message; return; }
+
+    const quantities = new Map(ownedRows.map(row => [row.card_id, row.quantity]));
+    const reserved = new Map();
+    offers.forEach(o => reserved.set(o.card_id, (reserved.get(o.card_id) || 0) + o.quantity));
+    const setById = new Map(sets.map(s => [s.id, s]));
+    const cardById = new Map(cards.map(card => [card.id, card]));
+    myDonationsContent.replaceChildren();
+
+    const form = document.createElement("div");
+    form.className = "set";
+    form.style.maxWidth = "520px";
+    form.style.margin = "14px auto";
+    form.style.textAlign = "left";
+    const heading = document.createElement("h3");
+    heading.textContent = "Proposer une carte au don";
+    form.appendChild(heading);
+
+    const cardLabel = document.createElement("label");
+    cardLabel.textContent = "Carte à donner";
+    cardLabel.style.display = "block";
+    cardLabel.style.margin = "12px 0 6px";
+    const cardSelect = document.createElement("select");
+    cardSelect.style.width = "100%";
+    cardSelect.style.padding = "12px";
+    cardSelect.style.borderRadius = "8px";
+    cardSelect.style.border = "1px solid #c8a26a";
+    const available = cards.filter(card => (quantities.get(card.id) || 0) > (reserved.get(card.id) || 0) && card.is_tradable_now);
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = available.length ? "Choisis une carte en double" : "Aucun doublon disponible pour le don";
+    cardSelect.appendChild(placeholder);
+    available.forEach(card => {
+      const set = setById.get(card.set_id);
+      const free = (quantities.get(card.id) || 0) - (reserved.get(card.id) || 0);
+      const option = document.createElement("option");
+      option.value = card.id;
+      option.textContent = (set ? (set.name_fr || set.name) + " · " : "") + "#" + card.card_number + " " + (card.name_fr || card.name) + " — " + free + " disponible(s)";
+      cardSelect.appendChild(option);
+    });
+    cardLabel.appendChild(cardSelect);
+    form.appendChild(cardLabel);
+
+    const qtyLabel = document.createElement("label");
+    qtyLabel.textContent = "Quantité à proposer";
+    qtyLabel.style.display = "block";
+    qtyLabel.style.margin = "12px 0 6px";
+    const qtyInput = document.createElement("input");
+    qtyInput.type = "number";
+    qtyInput.min = "1";
+    qtyInput.step = "1";
+    qtyInput.value = "1";
+    qtyInput.style.width = "100%";
+    qtyInput.style.boxSizing = "border-box";
+    qtyInput.style.padding = "12px";
+    qtyInput.style.borderRadius = "8px";
+    qtyInput.style.border = "1px solid #c8a26a";
+    qtyLabel.appendChild(qtyInput);
+    form.appendChild(qtyLabel);
+
+    const publish = document.createElement("button");
+    publish.textContent = "Publier mon don";
+    publish.disabled = available.length === 0;
+    form.appendChild(publish);
+    const feedback = document.createElement("p");
+    feedback.className = "muted";
+    feedback.setAttribute("role", "status");
+    form.appendChild(feedback);
+    myDonationsContent.appendChild(form);
+
+    publish.addEventListener("click", async () => {
+      const cardId = cardSelect.value;
+      const quantity = Number.parseInt(qtyInput.value, 10);
+      if (!cardId) { feedback.textContent = "Choisis d’abord une carte."; return; }
+      if (!Number.isInteger(quantity) || quantity < 1) { feedback.textContent = "Indique une quantité valide."; return; }
+      const free = (quantities.get(cardId) || 0) - (reserved.get(cardId) || 0);
+      if (quantity > free) { feedback.textContent = "Tu n’as que " + free + " exemplaire(s) disponible(s)."; return; }
+      publish.disabled = true;
+      feedback.textContent = "Publication du don...";
+      const { error } = await supabase.rpc("publish_card_offer", { p_card_id: cardId, p_quantity: quantity });
+      if (error) { feedback.textContent = "Impossible de publier : " + error.message; publish.disabled = false; return; }
+      feedback.textContent = "Ton don est publié !";
+      await loadMyDonations();
+    });
+
+    const listTitle = document.createElement("h3");
+    listTitle.textContent = "Mes dons en cours";
+    myDonationsContent.appendChild(listTitle);
+    if (!offers.length) {
+      const empty = document.createElement("p");
+      empty.className = "muted";
+      empty.textContent = "Tu n’as pas encore de don publié.";
+      myDonationsContent.appendChild(empty);
+      return;
+    }
+    offers.forEach(offer => {
+      const card = cardById.get(offer.card_id);
+      if (!card) return;
+      const set = setById.get(card.set_id);
+      const item = document.createElement("div");
+      item.className = "set";
+      const name = document.createElement("strong");
+      name.textContent = (set ? (set.name_fr || set.name) + " · " : "") + "#" + card.card_number + " " + (card.name_fr || card.name);
+      const qty = document.createElement("p");
+      qty.textContent = offer.quantity + " exemplaire(s) proposé(s) au don";
+      item.append(name, qty);
+      myDonationsContent.appendChild(item);
+    });
+  }
 
   // MES CARTES : inventaire personnel et quantités de doublons
   async function loadMyCards() {
