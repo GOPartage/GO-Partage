@@ -1843,8 +1843,38 @@
           worker = await Tesseract.createWorker("eng");
           const textParts = [];
           for (let i = 0; i < importImages.length; i++) {
-            const result = await worker.recognize(importImages[i]);
-            textParts.push(result.data.text || "");
+            const file = importImages[i];
+            // Première lecture de la capture originale.
+            const originalResult = await worker.recognize(file);
+            textParts.push(originalResult.data.text || "");
+
+            // Seconde lecture améliorée : agrandissement + niveaux de gris/contraste.
+            // Cela aide lorsque les noms des autocollants sont petits dans la capture.
+            try {
+              const bitmap = await createImageBitmap(file);
+              const maxSide = Math.max(bitmap.width, bitmap.height);
+              const scale = Math.max(1, Math.min(2.5, 1800 / maxSide));
+              const canvas = document.createElement("canvas");
+              canvas.width = Math.round(bitmap.width * scale);
+              canvas.height = Math.round(bitmap.height * scale);
+              const context = canvas.getContext("2d", { willReadFrequently: true });
+              context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+              bitmap.close();
+              const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+              const pixels = imageData.data;
+              for (let p = 0; p < pixels.length; p += 4) {
+                const gray = pixels[p] * 0.299 + pixels[p + 1] * 0.587 + pixels[p + 2] * 0.114;
+                const contrasted = Math.max(0, Math.min(255, (gray - 128) * 1.35 + 128));
+                pixels[p] = pixels[p + 1] = pixels[p + 2] = contrasted;
+              }
+              context.putImageData(imageData, 0, 0);
+              await worker.setParameters({ tessedit_pageseg_mode: "11" });
+              const enhancedResult = await worker.recognize(canvas);
+              textParts.push(enhancedResult.data.text || "");
+              await worker.setParameters({ tessedit_pageseg_mode: "6" });
+            } catch (imageError) {
+              // Si le navigateur ne peut pas prétraiter une image, la lecture originale reste utilisable.
+            }
           }
           importText = textParts.join("\n");
           const normalizedText = normalizeForMatch(importText);
