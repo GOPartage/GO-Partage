@@ -1936,6 +1936,7 @@
     let importError = "";
     let importMatches = new Set();
     let importChecked = new Set();
+    let importQuantities = new Map();
     let importBusy = false;
 
     function normalizeForMatch(value) {
@@ -1999,7 +2000,7 @@
       fileInput.type = "file"; fileInput.accept = "image/*"; fileInput.multiple = true;
       fileInput.addEventListener("change", () => {
         importImages = Array.from(fileInput.files || []);
-        importText = ""; importError = ""; importMatches = new Set(); importChecked = new Set();
+        importText = ""; importError = ""; importMatches = new Set(); importChecked = new Set(); importQuantities = new Map();
         render();
       });
       importBox.appendChild(fileInput);
@@ -2023,78 +2024,8 @@
         let worker = null;
         try {
           const Tesseract = await import("https://cdn.jsdelivr.net/npm/tesseract.js@5/+esm");
-          worker = await Tesseract.createWorker("eng");
+          worker = await Tesseract.createWorker("fra+eng");
           const textParts = [];
-          for (let i = 0; i < importImages.length; i++) {
-            const file = importImages[i];
-            // Lecture globale pour conserver les titres et les éventuels noms de sets.
-            const originalResult = await worker.recognize(file);
-            textParts.push("[CAPTURE " + (i + 1) + " - PAGE COMPLETE]\n" + (originalResult.data.text || ""));
-
-            // Nouvelle méthode : agrandir puis découper la page en 9 zones qui se chevauchent.
-            // Chaque autocollant est ainsi présenté seul à l'OCR, plutôt que noyé dans toute la page.
-            let bitmap = null;
-            try {
-              bitmap = await createImageBitmap(file);
-              const source = document.createElement("canvas");
-              source.width = bitmap.width;
-              source.height = bitmap.height;
-              const sourceContext = source.getContext("2d", { willReadFrequently: true });
-              sourceContext.drawImage(bitmap, 0, 0);
-              const left = Math.round(bitmap.width * 0.035);
-              const top = Math.round(bitmap.height * 0.12);
-              const areaWidth = Math.round(bitmap.width * 0.93);
-              const areaHeight = Math.round(bitmap.height * 0.76);
-              const overlap = 0.08;
-              let zoneNumber = 0;
-
-              for (let row = 0; row < 3; row++) {
-                for (let col = 0; col < 3; col++) {
-                  zoneNumber++;
-                  const cellW = areaWidth / 3;
-                  const cellH = areaHeight / 3;
-                  const sx = Math.max(0, Math.round(left + col * cellW - cellW * overlap / 2));
-                  const sy = Math.max(0, Math.round(top + row * cellH - cellH * overlap / 2));
-                  const sw = Math.min(bitmap.width - sx, Math.round(cellW * (1 + overlap)));
-                  const sh = Math.min(bitmap.height - sy, Math.round(cellH * (1 + overlap)));
-                  const crop = document.createElement("canvas");
-                  const factor = Math.max(2.5, Math.min(4, 1200 / Math.max(sw, sh)));
-                  crop.width = Math.round(sw * factor);
-                  crop.height = Math.round(sh * factor);
-                  const cropContext = crop.getContext("2d", { willReadFrequently: true });
-                  cropContext.imageSmoothingEnabled = true;
-                  cropContext.imageSmoothingQuality = "high";
-                  cropContext.drawImage(source, sx, sy, sw, sh, 0, 0, crop.width, crop.height);
-
-                  // Première lecture en couleur, puis lecture contrastée en niveaux de gris.
-                  await worker.setParameters({ tessedit_pageseg_mode: "6", preserve_interword_spaces: "1" });
-                  const colorResult = await worker.recognize(crop);
-                  let zoneText = colorResult.data.text || "";
-                  const pixelsData = cropContext.getImageData(0, 0, crop.width, crop.height);
-                  const pixels = pixelsData.data;
-                  for (let p = 0; p < pixels.length; p += 4) {
-                    const gray = pixels[p] * 0.299 + pixels[p + 1] * 0.587 + pixels[p + 2] * 0.114;
-                    const enhanced = Math.max(0, Math.min(255, (gray - 118) * 1.65 + 128));
-                    pixels[p] = pixels[p + 1] = pixels[p + 2] = enhanced;
-                  }
-                  cropContext.putImageData(pixelsData, 0, 0);
-                  await worker.setParameters({ tessedit_pageseg_mode: "11", preserve_interword_spaces: "1" });
-                  const contrastResult = await worker.recognize(crop);
-                  const contrastText = contrastResult.data.text || "";
-                  if (contrastText.trim().length > zoneText.trim().length) zoneText = contrastText;
-                  textParts.push("[CAPTURE " + (i + 1) + " - CARTE " + zoneNumber + "]\n" + zoneText);
-                }
-              }
-            } catch (imageError) {
-              textParts.push("[Découpage impossible : " + (imageError && imageError.message ? imageError.message : imageError) + "]");
-            } finally {
-              if (bitmap) bitmap.close();
-            }
-          }
-          await worker.setParameters({ tessedit_pageseg_mode: "6" });
-          importText = textParts.join("\n");
-          const normalizedText = normalizeForMatch(importText);
-          const ocrWords = String(importText).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().match(/[a-z0-9]{3,}/g) || [];
           const distance = (a, b) => {
             const row = Array.from({length:b.length + 1}, (_,i) => i);
             for (let i = 1; i <= a.length; i++) {
@@ -2107,22 +2038,87 @@
             }
             return row[b.length];
           };
-          cards.forEach(card => {
-            const names = [card.name, card.name_fr].filter(Boolean);
-            const matched = names.some(name => {
-              const normalizedName = normalizeForMatch(name);
-              if (normalizedName.length >= 4 && normalizedText.includes(normalizedName)) return true;
-              const tokens = String(name).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().match(/[a-z0-9]{3,}/g) || [];
-              if (!tokens.length) return false;
-              let found = 0;
-              for (const token of tokens) {
-                const maxDistance = token.length >= 8 ? 2 : 1;
-                if (ocrWords.some(word => word === token || (Math.abs(word.length-token.length) <= maxDistance && distance(token,word) <= maxDistance))) found++;
+          const matchCardName = (ocrText) => {
+            const ocrNorm = normalizeForMatch(ocrText);
+            if (ocrNorm.length < 4) return null;
+            let best = null, bestScore = 0;
+            for (const card of cards) {
+              for (const name of [card.name_fr, card.name].filter(Boolean)) {
+                const target = normalizeForMatch(name);
+                if (!target) continue;
+                let score = 0;
+                if (ocrNorm.includes(target) || target.includes(ocrNorm)) score = Math.min(1, Math.min(ocrNorm.length,target.length) / Math.max(ocrNorm.length,target.length) + 0.15);
+                else {
+                  const a = String(name).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().match(/[a-z0-9]{3,}/g) || [];
+                  const b = String(ocrText).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().match(/[a-z0-9]{3,}/g) || [];
+                  if (a.length && b.length) {
+                    const hits = a.filter(token => b.some(word => {
+                      const max = token.length >= 8 ? 2 : 1;
+                      return Math.abs(word.length-token.length) <= max && distance(token,word) <= max;
+                    })).length;
+                    score = hits / a.length;
+                  }
+                }
+                if (score > bestScore) { bestScore = score; best = card; }
               }
-              return tokens.length === 1 ? found === 1 : found / tokens.length >= 0.75;
-            });
-            if (matched) importMatches.add(card.id);
-          });
+            }
+            return bestScore >= 0.62 ? best : null;
+          };
+          for (let i = 0; i < importImages.length; i++) {
+            let bitmap = null;
+            try {
+              bitmap = await createImageBitmap(importImages[i]);
+              const source = document.createElement("canvas");
+              source.width = bitmap.width; source.height = bitmap.height;
+              const ctx = source.getContext("2d", { willReadFrequently: true });
+              ctx.drawImage(bitmap, 0, 0);
+              // Les captures Monopoly GO présentent les 9 cartes en 3 colonnes.
+              // On lit séparément la bande du nom et l'étiquette +N de chaque carte.
+              const nameXs = [0.075, 0.33, 0.585];
+              const nameTop = [0.338, 0.495, 0.652];
+              const countTop = [0.319, 0.476, 0.633];
+              for (let row = 0; row < 3; row++) {
+                for (let col = 0; col < 3; col++) {
+                  const zone = row * 3 + col + 1;
+                  const nameCanvas = document.createElement("canvas");
+                  const sx = Math.round(bitmap.width * nameXs[col]);
+                  const sy = Math.round(bitmap.height * nameTop[row]);
+                  const sw = Math.round(bitmap.width * 0.225);
+                  const sh = Math.round(bitmap.height * 0.035);
+                  nameCanvas.width = sw * 5; nameCanvas.height = sh * 5;
+                  nameCanvas.getContext("2d").drawImage(source,sx,sy,sw,sh,0,0,nameCanvas.width,nameCanvas.height);
+                  await worker.setParameters({ tessedit_pageseg_mode: "7", preserve_interword_spaces: "1" });
+                  const nameResult = await worker.recognize(nameCanvas);
+                  const nameText = (nameResult.data.text || "").trim();
+                  textParts.push("[CAPTURE " + (i+1) + " - CARTE " + zone + "] " + nameText);
+                  const matchedCard = matchCardName(nameText);
+                  if (matchedCard) {
+                    importMatches.add(matchedCard.id);
+                    importChecked.add(matchedCard.id);
+                    const countCanvas = document.createElement("canvas");
+                    const cx = sx;
+                    const cy = Math.round(bitmap.height * countTop[row]);
+                    const cw = Math.round(bitmap.width * 0.105);
+                    const ch = Math.round(bitmap.height * 0.031);
+                    countCanvas.width = cw * 6; countCanvas.height = ch * 6;
+                    countCanvas.getContext("2d").drawImage(source,cx,cy,cw,ch,0,0,countCanvas.width,countCanvas.height);
+                    const countResult = await worker.recognize(countCanvas);
+                    const countText = countResult.data.text || "";
+                    const countMatch = countText.match(/[+＋]?\s*(\d{1,2})/);
+                    const doubles = countMatch ? Math.min(99, Number(countMatch[1])) : 0;
+                    importQuantities.set(matchedCard.id, Math.max(importQuantities.get(matchedCard.id) || 0, doubles));
+                    textParts.push("[DOUBLES CARTE " + zone + "] " + countText);
+                  }
+                }
+              }
+            } catch (imageError) {
+              textParts.push("[Capture " + (i+1) + " : " + (imageError && imageError.message ? imageError.message : imageError) + "]");
+            } finally {
+              if (bitmap) bitmap.close();
+            }
+          }
+          importText = textParts.join("\n");
+          if (!importMatches.size) importError = "Aucune carte reconnue. Vérifie que les noms sont visibles et que la capture montre bien la page complète du set.";
           importChecked = new Set(importMatches);
           if (!importMatches.size) importError = "Aucune carte reconnue. Essaie des captures où les noms des cartes sont bien visibles.";
         } catch (e) {
@@ -2164,7 +2160,7 @@
           const textLabel = document.createElement("span");
           textLabel.textContent = (setName ? (setName.name_fr || setName.name) + " · " : "") +
             "#" + card.card_number + " — " + (card.name_fr || card.name) +
-            (importMatches.has(card.id) ? " ✓ reconnue" : "");
+            (importMatches.has(card.id) ? " ✓ reconnue · " + (importQuantities.get(card.id) || 0) + " double(s)" : "");
           label.append(checkbox, textLabel); choices.appendChild(label);
         });
         importBox.appendChild(choices);
@@ -2172,12 +2168,13 @@
         saveImport.className = "small-button";
         saveImport.textContent = "Enregistrer les cartes cochées";
         saveImport.addEventListener("click", async () => {
-          const selected = cards.filter(card => importChecked.has(card.id) && (quantities.get(card.id) || 0) === 0);
-          if (!selected.length) { alert("Aucune nouvelle carte à ajouter."); return; }
+          const selected = cards.filter(card => importChecked.has(card.id));
+          if (!selected.length) { alert("Aucune carte cochée à enregistrer."); return; }
           saveImport.disabled = true; saveImport.textContent = "Enregistrement...";
           for (const card of selected) {
+            const totalQuantity = 1 + (importQuantities.get(card.id) || 0);
             const { error } = await supabase.from("member_cards").upsert(
-              { member_id: user.id, card_id: card.id, quantity: 1, updated_at: new Date().toISOString() },
+              { member_id: user.id, card_id: card.id, quantity: totalQuantity, updated_at: new Date().toISOString() },
               { onConflict: "member_id,card_id" }
             );
             if (error) {
@@ -2185,9 +2182,9 @@
               saveImport.disabled = false; saveImport.textContent = "Réessayer l’enregistrement";
               return;
             }
-            quantities.set(card.id, 1);
+            quantities.set(card.id, totalQuantity);
           }
-          importImages = []; importText = ""; importError = ""; importMatches = new Set(); importChecked = new Set();
+          importImages = []; importText = ""; importError = ""; importMatches = new Set(); importChecked = new Set(); importQuantities = new Map();
           alert(selected.length + " carte(s) ajoutée(s) à Mes cartes.");
           render();
         });
