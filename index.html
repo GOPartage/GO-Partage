@@ -38,11 +38,11 @@
 
     main {
 
-      max-width: 650px;
+      max-width: 750px;
 
-      margin: 35px auto;
+      margin: 25px auto;
 
-      padding: 20px;
+      padding: 15px;
 
     }
 
@@ -50,7 +50,7 @@
 
       background: white;
 
-      padding: 25px;
+      padding: 22px;
 
       border-radius: 16px;
 
@@ -116,9 +116,143 @@
 
       border-radius: 12px;
 
+      cursor: pointer;
+
+      border: 0;
+
+      color: #3b312d;
+
+      font-size: 16px;
+
+      margin: 0;
+
     }
 
-    [hidden] { display: none !important; }
+    .tile:disabled {
+
+      opacity: .65;
+
+      cursor: default;
+
+    }
+
+    .set {
+
+      background: #f7f2eb;
+
+      border-radius: 12px;
+
+      margin: 12px 0;
+
+      padding: 14px;
+
+      text-align: left;
+
+    }
+
+    .set h3 {
+
+      margin: 0;
+
+      font-size: 17px;
+
+    }
+
+    .set-info {
+
+      font-size: 13px;
+
+      color: #78695d;
+
+      margin-top: 5px;
+
+    }
+
+    .cards {
+
+      display: grid;
+
+      grid-template-columns: repeat(3, 1fr);
+
+      gap: 8px;
+
+      margin-top: 12px;
+
+    }
+
+    .card-item {
+
+      background: white;
+
+      border-radius: 9px;
+
+      padding: 10px 5px;
+
+      text-align: center;
+
+      font-size: 13px;
+
+      overflow-wrap: anywhere;
+
+      border: 1px solid #e8ded2;
+
+    }
+
+    .card-number {
+
+      font-weight: bold;
+
+      color: #b8905d;
+
+      display: block;
+
+      margin-bottom: 5px;
+
+    }
+
+    .gold {
+
+      color: #a87924;
+
+      font-weight: bold;
+
+      display: block;
+
+      margin-top: 5px;
+
+    }
+
+    .small-button {
+
+      padding: 9px 14px;
+
+      font-size: 14px;
+
+    }
+
+    .muted {
+
+      color: #78695d;
+
+      font-size: 14px;
+
+    }
+
+    [hidden] {
+
+      display: none !important;
+
+    }
+
+    @media (max-width: 450px) {
+
+      .cards {
+
+        grid-template-columns: repeat(2, 1fr);
+
+      }
+
+    }
 
   </style>
 
@@ -168,21 +302,35 @@
 
     <div class="tiles">
 
-      <div class="tile">📚<br>Mes albums</div>
+      <button class="tile" id="albumsButton">📚<br>Mes albums</button>
 
-      <div class="tile">🃏<br>Mes cartes</div>
+      <button class="tile" disabled>🃏<br>Mes cartes</button>
 
-      <div class="tile">🎁<br>Mes dons</div>
+      <button class="tile" disabled>🎁<br>Mes dons</button>
 
-      <div class="tile">🔄<br>Échanges</div>
+      <button class="tile" disabled>🔄<br>Échanges</button>
 
-      <div class="tile">👤<br>Mon compte</div>
+      <button class="tile" disabled>👤<br>Mon compte</button>
 
-      <div class="tile">💡<br>Suggestions</div>
+      <button class="tile" disabled>💡<br>Suggestions</button>
 
     </div>
 
-    <p>Les fonctionnalités seront activées progressivement.</p>
+    <p class="muted">Les fonctionnalités seront activées progressivement.</p>
+
+  </section>
+
+  <section class="panel" id="albumsPanel" hidden>
+
+    <button class="small-button" id="backButton">← Retour</button>
+
+    <h2>📚 Mes albums</h2>
+
+    <div id="albumContent">
+
+      Chargement des albums...
+
+    </div>
 
   </section>
 
@@ -210,9 +358,13 @@
 
   const dashboard = document.getElementById("dashboard");
 
+  const albumsPanel = document.getElementById("albumsPanel");
+
   const status = document.getElementById("status");
 
   const facebookButton = document.getElementById("facebookButton");
+
+  const albumContent = document.getElementById("albumContent");
 
   function displaySession(session) {
 
@@ -236,9 +388,13 @@
 
       dashboard.hidden = true;
 
+      albumsPanel.hidden = true;
+
     }
 
   }
+
+  // CONNEXION FACEBOOK
 
   facebookButton.addEventListener("click", async () => {
 
@@ -268,6 +424,8 @@
 
   });
 
+  // DÉCONNEXION
+
   document.getElementById("logoutButton").addEventListener("click", async () => {
 
     const { error } = await supabase.auth.signOut();
@@ -279,6 +437,216 @@
     }
 
   });
+
+  // AFFICHER LES ALBUMS
+
+  document.getElementById("albumsButton").addEventListener("click", async () => {
+
+    dashboard.hidden = true;
+
+    albumsPanel.hidden = false;
+
+    await loadAlbums();
+
+  });
+
+  // RETOUR À L'ACCUEIL
+
+  document.getElementById("backButton").addEventListener("click", () => {
+
+    albumsPanel.hidden = true;
+
+    dashboard.hidden = false;
+
+  });
+
+  // CHARGEMENT DES DONNÉES DE SUPABASE
+
+  async function loadAlbums() {
+
+    albumContent.textContent = "Chargement de l'album Monster Mash...";
+
+    const { data: albums, error: albumError } = await supabase
+
+      .from("albums")
+
+      .select("id, name, season, is_active")
+
+      .eq("is_active", true);
+
+    if (albumError) {
+
+      albumContent.textContent =
+
+        "Impossible de charger les albums : " + albumError.message;
+
+      return;
+
+    }
+
+    const album = albums.find(a => a.name === "Monster Mash");
+
+    if (!album) {
+
+      albumContent.textContent = "Album Monster Mash introuvable.";
+
+      return;
+
+    }
+
+    const { data: sets, error: setsError } = await supabase
+
+      .from("card_sets")
+
+      .select("id, name, sort_order")
+
+      .eq("album_id", album.id)
+
+      .order("sort_order", { ascending: true });
+
+    if (setsError) {
+
+      albumContent.textContent =
+
+        "Erreur lors du chargement des collections : " + setsError.message;
+
+      return;
+
+    }
+
+    if (!sets || sets.length === 0) {
+
+      albumContent.textContent = "Aucune collection trouvée.";
+
+      return;
+
+    }
+
+    const setIds = sets.map(s => s.id);
+
+    const { data: cards, error: cardsError } = await supabase
+
+      .from("cards")
+
+      .select("id, set_id, card_number, name, rarity, is_gold")
+
+      .in("set_id", setIds)
+
+      .eq("is_approved", true)
+
+      .order("card_number", { ascending: true });
+
+    if (cardsError) {
+
+      albumContent.textContent =
+
+        "Erreur lors du chargement des cartes : " + cardsError.message;
+
+      return;
+
+    }
+
+    // EN-TÊTE DE L'ALBUM
+
+    albumContent.replaceChildren();
+
+    const title = document.createElement("h2");
+
+    title.textContent = "👻 " + album.name;
+
+    albumContent.appendChild(title);
+
+    const info = document.createElement("p");
+
+    info.className = "muted";
+
+    info.textContent =
+
+      sets.length + " collections • " + cards.length + " cartes";
+
+    albumContent.appendChild(info);
+
+    // AFFICHAGE DES COLLECTIONS
+
+    sets.forEach(set => {
+
+      const setCards = cards.filter(card => card.set_id === set.id);
+
+      const section = document.createElement("div");
+
+      section.className = "set";
+
+      const heading = document.createElement("h3");
+
+      heading.textContent = set.sort_order + ". " + set.name;
+
+      section.appendChild(heading);
+
+      const setInfo = document.createElement("div");
+
+      setInfo.className = "set-info";
+
+      setInfo.textContent = setCards.length + " / 9 cartes";
+
+      section.appendChild(setInfo);
+
+      const cardsContainer = document.createElement("div");
+
+      cardsContainer.className = "cards";
+
+      setCards.forEach(card => {
+
+        const item = document.createElement("div");
+
+        item.className = "card-item";
+
+        const number = document.createElement("span");
+
+        number.className = "card-number";
+
+        number.textContent = "#" + card.card_number;
+
+        item.appendChild(number);
+
+        const name = document.createElement("span");
+
+        name.textContent = card.name;
+
+        item.appendChild(name);
+
+        const rarity = document.createElement("span");
+
+        rarity.className = "muted";
+
+        rarity.textContent = card.rarity || "";
+
+        item.appendChild(rarity);
+
+        if (card.is_gold) {
+
+          const gold = document.createElement("span");
+
+          gold.className = "gold";
+
+          gold.textContent = "⭐ Dorée";
+
+          item.appendChild(gold);
+
+        }
+
+        cardsContainer.appendChild(item);
+
+      });
+
+      section.appendChild(cardsContainer);
+
+      albumContent.appendChild(section);
+
+    });
+
+  }
+
+  // GESTION DE LA SESSION
 
   supabase.auth.onAuthStateChange((_event, session) => {
 
