@@ -529,8 +529,7 @@
 
       .from("cards")
 
-      .select("id, set_id, card_number, name, rarity, is_gold")
-
+.select("id, set_id, card_number, name, name_fr, rarity, is_gold")
       .in("set_id", setIds)
 
       .eq("is_approved", true)
