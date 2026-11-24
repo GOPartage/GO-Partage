@@ -383,6 +383,8 @@
 
       <button class="tile" id="suggestionsButton">💡<br>Suggestions</button>
 
+      <button class="tile" id="adminButton" hidden>🛠️<br>Administration</button>
+
     </div>
 
     <p class="muted">Les fonctionnalités seront activées progressivement.</p>
@@ -434,6 +436,15 @@
     <div id="mySuggestionsList"></div>
   </section>
 
+  <section class="panel" id="adminPanel" hidden>
+    <button class="small-button" id="backFromAdminButton">← Retour</button>
+    <h2>🛠️ Administration GO Partage</h2>
+    <p class="muted">Espace réservé à l’équipe d’administration.</p>
+    <div id="adminAlbumOverview" class="set">Chargement des albums...</div>
+    <h3>Suggestions des membres</h3>
+    <div id="adminSuggestionsList">Chargement des suggestions...</div>
+  </section>
+
 </main>
 
 <script type="module">
@@ -463,6 +474,7 @@
   const myDonationsContent = document.getElementById("myDonationsContent");
   const myAccountPanel = document.getElementById("myAccountPanel");
   const suggestionsPanel = document.getElementById("suggestionsPanel");
+  const adminPanel = document.getElementById("adminPanel");
 
   const status = document.getElementById("status");
 
@@ -495,6 +507,8 @@
       myDonationsPanel.hidden = true;
       myAccountPanel.hidden = true;
       suggestionsPanel.hidden = true;
+      adminPanel.hidden = true;
+      document.getElementById("adminButton").hidden = true;
 
     }
 
@@ -586,6 +600,116 @@
   document.getElementById("backFromSuggestionsButton").addEventListener("click", () => {
     suggestionsPanel.hidden = true; dashboard.hidden = false;
   });
+
+  document.getElementById("adminButton").addEventListener("click", async () => {
+    dashboard.hidden = true;
+    adminPanel.hidden = false;
+    await loadAdminPanel();
+  });
+  document.getElementById("backFromAdminButton").addEventListener("click", () => {
+    adminPanel.hidden = true;
+    dashboard.hidden = false;
+  });
+
+  async function loadAdminAccess(userId) {
+    const button = document.getElementById("adminButton");
+    button.hidden = true;
+    const { data, error } = await supabase.from("profiles")
+      .select("role,status").eq("id", userId).single();
+    if (!error && data && data.role === "admin" && data.status === "active") {
+      button.hidden = false;
+    }
+  }
+
+  async function loadAdminPanel() {
+    const albumsBox = document.getElementById("adminAlbumOverview");
+    const suggestionsBox = document.getElementById("adminSuggestionsList");
+    albumsBox.textContent = "Chargement des albums...";
+    suggestionsBox.textContent = "Chargement des suggestions...";
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      albumsBox.textContent = "Session expirée. Reconnecte-toi.";
+      suggestionsBox.textContent = "";
+      return;
+    }
+    const { data: albums, error: albumsError } = await supabase.from("albums")
+      .select("id,name,season,is_active").order("created_at", { ascending: false });
+    if (albumsError) {
+      albumsBox.textContent = "Impossible de charger les albums : " + albumsError.message;
+    } else {
+      albumsBox.replaceChildren();
+      const heading = document.createElement("h3");
+      heading.textContent = "Albums enregistrés";
+      albumsBox.appendChild(heading);
+      for (const album of albums || []) {
+        const row = document.createElement("p");
+        row.textContent = (album.is_active ? "🟢 Actif · " : "⚪ Inactif · ") +
+          album.name + (album.season ? " (" + album.season + ")" : "");
+        albumsBox.appendChild(row);
+      }
+      if (!albums || !albums.length) albumsBox.append("Aucun album enregistré.");
+    }
+
+    const { data: suggestions, error: suggestionsError } = await supabase.from("card_suggestions")
+      .select("id,submitted_by,album_name,set_name,card_number,card_name,rarity,is_gold,notes,status,created_at")
+      .order("created_at", { ascending: false }).limit(100);
+    if (suggestionsError) {
+      suggestionsBox.textContent = "Impossible de charger les suggestions : " + suggestionsError.message;
+      return;
+    }
+    suggestionsBox.replaceChildren();
+    if (!suggestions || !suggestions.length) {
+      suggestionsBox.textContent = "Aucune suggestion pour le moment.";
+      return;
+    }
+    const memberIds = [...new Set(suggestions.map(item => item.submitted_by).filter(Boolean))];
+    let memberNames = new Map();
+    if (memberIds.length) {
+      const { data: members } = await supabase.from("profiles")
+        .select("id,display_name").in("id", memberIds);
+      memberNames = new Map((members || []).map(member => [member.id, member.display_name]));
+    }
+    suggestions.forEach(item => {
+      const card = document.createElement("div");
+      card.className = "set";
+      const title = document.createElement("strong");
+      title.textContent = item.album_name + " · " + item.set_name + " · #" +
+        item.card_number + " " + item.card_name;
+      const details = document.createElement("p");
+      details.className = "muted";
+      details.textContent = "Proposée par : " + (memberNames.get(item.submitted_by) || "Membre") +
+        (item.rarity ? " · " + item.rarity : "") + (item.is_gold ? " · Dorée" : "") +
+        (item.notes ? " · " + item.notes : "");
+      const state = document.createElement("p");
+      state.className = "muted";
+      state.textContent = item.status === "pending" ? "⏳ En attente" :
+        item.status === "approved" ? "✅ Approuvée" : "❌ Refusée";
+      card.append(title, details, state);
+      if (item.status === "pending") {
+        for (const decision of [{value:"approved",label:"Approuver"},{value:"rejected",label:"Refuser"}]) {
+          const action = document.createElement("button");
+          action.className = "small-button";
+          action.textContent = decision.label;
+          action.addEventListener("click", async () => {
+            action.disabled = true;
+            const { error } = await supabase.from("card_suggestions").update({
+              status: decision.value,
+              reviewed_by: user.id,
+              reviewed_at: new Date().toISOString()
+            }).eq("id", item.id);
+            if (error) {
+              action.disabled = false;
+              state.textContent = "Erreur : " + error.message;
+              return;
+            }
+            await loadAdminPanel();
+          });
+          card.appendChild(action);
+        }
+      }
+      suggestionsBox.appendChild(card);
+    });
+  }
 
   async function loadMyAccount() {
     const feedback = document.getElementById("profileFeedback");
@@ -1359,14 +1483,14 @@
   // GESTION DE LA SESSION
 
   supabase.auth.onAuthStateChange((_event, session) => {
-
     displaySession(session);
-
+    if (session) loadAdminAccess(session.user.id);
   });
 
   const { data: { session } } = await supabase.auth.getSession();
 
   displaySession(session);
+  if (session) await loadAdminAccess(session.user.id);
 
 </script>
 
