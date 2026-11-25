@@ -432,7 +432,7 @@
   <section class="panel" id="myDiscussionsPanel" hidden>
     <button class="small-button" id="backFromDiscussionsButton">← Retour</button>
     <h2>💬 Discussion</h2>
-    <p class="muted">Les conversations s’ouvrent automatiquement après la réception confirmée d’un don.</p>
+    <p class="muted">Échange avec les membres après un don confirmé et retrouve ici tes messages privés de l’administration.</p>
     <div id="myDiscussionsContent">Chargement de tes discussions...</div>
   </section>
 
@@ -2346,6 +2346,7 @@
     }
     myDiscussionsContent.replaceChildren();
     const supportSection = document.createElement("div"); supportSection.className = "set";
+    const supportTitle = document.createElement("h3"); supportTitle.textContent = "📩 Messagerie privée avec l’administration";
     const supportChat = document.createElement("div");
     const { data: supportConversation, error: supportError } = await supabase.from("support_conversations")
       .select("id,member_id").eq("member_id",user.id).maybeSingle();
@@ -2357,7 +2358,7 @@
       supportChat.className = "muted";
       supportChat.textContent = "Aucun message de l’administration pour le moment.";
     }
-    supportSection.append(supportChat);
+    supportSection.append(supportTitle,supportChat);
     myDiscussionsContent.appendChild(supportSection);
     if (!transfers || !transfers.length) {
       const empty = document.createElement("p");
