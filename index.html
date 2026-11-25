@@ -555,6 +555,15 @@
   const albumContent = document.getElementById("albumContent");
 
   const donationNotificationDot = document.getElementById("myDonationsNotificationDot");
+  async function updateHomeScreenBadge(hasNotifications) {
+    try {
+      if (!("setAppBadge" in navigator) || !("clearAppBadge" in navigator)) return;
+      if (hasNotifications) await navigator.setAppBadge(1);
+      else await navigator.clearAppBadge();
+    } catch (error) {
+      console.info("Badge de l’écran d’accueil non pris en charge :", error);
+    }
+  }
   let notificationRefreshBusy = false;
   async function refreshDonationNotifications(markSeen = false) {
     if (notificationRefreshBusy) return;
@@ -594,6 +603,7 @@
         };
         localStorage.setItem(key, JSON.stringify(seen));
         donationNotificationDot.hidden = true;
+        await updateHomeScreenBadge(false);
       } else {
         const knownRequests = new Set(seen.requests || []);
         const knownIncoming = new Set(previouslySeenIncoming);
@@ -601,6 +611,7 @@
         donationNotificationDot.hidden = !requestIds.some(id => !knownRequests.has(id)) &&
           !incomingTransferIds.some(id => !knownIncoming.has(id)) &&
           !outgoingTransferIds.some(id => !knownOutgoing.has(id));
+        await updateHomeScreenBadge(!donationNotificationDot.hidden);
       }
     } catch (error) {
       console.warn("Notifications GO Partage indisponibles :", error);
@@ -2429,7 +2440,10 @@
         await refreshDonationNotifications(false);
       });
     }
-    if (event === "SIGNED_OUT" && donationNotificationDot) donationNotificationDot.hidden = true;
+    if (event === "SIGNED_OUT" && donationNotificationDot) {
+      donationNotificationDot.hidden = true;
+      updateHomeScreenBadge(false);
+    }
   });
 
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
