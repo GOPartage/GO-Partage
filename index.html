@@ -1375,7 +1375,8 @@
           } else {
             const donorIds = [...new Set(missingOnlyOffers.map(o => o.member_id))];
             const { data: donorProfiles, error: donorProfilesError } = await supabase
-              .from("profiles").select("id, display_name").in("id", donorIds);
+              .from("profiles").select("id, display_name, confirmed_donations_count, confirmed_receptions_count").in("id", donorIds);
+            const donorProfilesById = new Map((donorProfiles || []).map(p => [p.id, p]));
             const donorNames = new Map((donorProfiles || []).map(p => [p.id, p.display_name || "Membre GO Partage"]));
             // Priorise les cartes qui permettraient au membre de terminer leur set.
             const completesSet = offer => {
@@ -1407,7 +1408,11 @@
               const name = document.createElement("strong");
               name.textContent = (set ? (set.name_fr || set.name) + " · " : "") + "#" + card.card_number + " " + (card.name_fr || card.name);
               const detail = document.createElement("p");
-              detail.textContent = "Don proposé par " + (donorNames.get(offer.member_id) || "Membre GO Partage") + " · " + offer.quantity + " exemplaire(s) disponible(s)";
+              const donorProfile = donorProfilesById.get(offer.member_id);
+              detail.textContent = "Don proposé par " + (donorNames.get(offer.member_id) || "Membre GO Partage") +
+                " · 📤 " + (donorProfile ? donorProfile.confirmed_donations_count : 0) +
+                " dons confirmés · 📥 " + (donorProfile ? donorProfile.confirmed_receptions_count : 0) +
+                " réceptions confirmées · " + offer.quantity + " exemplaire(s) disponible(s)";
               if (completesSet(offer)) {
                 const completion = document.createElement("p");
                 completion.className = "muted";
@@ -1478,7 +1483,12 @@
       } else {
         const requesterIds = [...new Set(incomingRequests.map(r => r.member_id))];
         const { data: requesterProfiles } = await supabase
-          .from("profiles").select("id, display_name, monopoly_go_link").in("id", requesterIds);
+          .from("profiles").select("id, display_name, monopoly_go_link, confirmed_donations_count, confirmed_receptions_count").in("id", requesterIds);
+        const { data: completionFlags, error: completionFlagsError } = await supabase.rpc(
+          "my_incoming_request_completion_flags",
+          { p_request_ids: incomingRequests.map(r => r.id) }
+        );
+        const completionByRequest = new Map((completionFlags || []).map(flag => [flag.request_id, flag.completes_set]));
         const requesterNames = new Map((requesterProfiles || []).map(p => [p.id, p.display_name || "Membre GO Partage"]));
         incomingRequests.forEach(request => {
           const card = cardById.get(request.card_id);
@@ -1491,7 +1501,24 @@
           const name = document.createElement("strong");
           name.textContent = (set ? (set.name_fr || set.name) + " · " : "") + "#" + card.card_number + " " + (card.name_fr || card.name);
           const detail = document.createElement("p");
-          detail.textContent = (requesterNames.get(request.member_id) || "Membre GO Partage") + " souhaite recevoir cette carte gratuitement.";
+          const requesterProfile = (requesterProfiles || []).find(p => p.id === request.member_id);
+          detail.textContent = (requesterNames.get(request.member_id) || "Membre GO Partage") +
+            " souhaite recevoir cette carte gratuitement. · 📤 " +
+            (requesterProfile ? requesterProfile.confirmed_donations_count : 0) +
+            " dons confirmés · 📥 " +
+            (requesterProfile ? requesterProfile.confirmed_receptions_count : 0) +
+            " réceptions confirmées";
+          if (completionFlagsError) {
+            const completionInfo = document.createElement("p");
+            completionInfo.className = "muted";
+            completionInfo.textContent = "Le statut de fin de set n'a pas pu être vérifié.";
+            item.appendChild(completionInfo);
+          } else if (completionByRequest.get(request.id) === true) {
+            const completion = document.createElement("p");
+            completion.className = "muted";
+            completion.textContent = "⭐ Ce don permettrait au membre de terminer ce set !";
+            item.appendChild(completion);
+          }
           const send = document.createElement("button");
           send.textContent = "Accepter et envoyer le don";
           const info = document.createElement("p");
