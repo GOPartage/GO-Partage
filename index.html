@@ -767,6 +767,9 @@
       const subscription = await (await navigator.serviceWorker.ready).pushManager.getSubscription();
       if (!user || !subscription) throw new Error("Abonnement introuvable sur cet appareil.");
       localStorage.setItem("goPartagePushTestOk:" + user.id + ":" + subscription.endpoint, "1");
+      // Un nouveau test réussi clôture toutes les alertes d’échec de ce membre.
+      const { error: clearError } = await supabase.from("push_test_reports").delete().eq("user_id", user.id);
+      if (clearError) throw clearError;
       document.getElementById("pushTestConfirmation").hidden = true;
       document.getElementById("testPushButton").hidden = true;
       feedback.textContent = "✅ Test réussi ! Tes notifications sont activées sur cet appareil.";
