@@ -3120,10 +3120,23 @@
           }
         }
       );
-      const { error } = await client.auth.signInAnonymously({
+      // Avant de créer un compte invité, vérifier si la session précédente existe déjà.
+      // Cela évite de créer un nouvel utilisateur à chaque clic lorsque l'écran de connexion
+      // s'affiche alors qu'une session est encore présente dans le stockage local.
+      const { data: existingSession, error: sessionError } = await client.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (existingSession && existingSession.session) {
+        window.location.reload();
+        return;
+      }
+
+      const { data: signInData, error } = await client.auth.signInAnonymously({
         options: { data: { name: "Joueur invité" } }
       });
       if (error) throw error;
+      if (!signInData || !signInData.session) {
+        throw new Error("La session invitée n'a pas pu être enregistrée sur cet appareil.");
+      }
     } catch (error) {
       console.error("Connexion invitée GO Partage :", error);
       if (status) {
