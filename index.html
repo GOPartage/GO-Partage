@@ -304,6 +304,7 @@
     .quantity-controls button { margin:0; padding:5px 10px; font-size:16px; }
     .quantity-value { min-width:22px; font-weight:bold; }
     .owned-card { border:1px solid #c8a26a; background:linear-gradient(115deg, rgba(255,224,132,.72) 0%, rgba(184,222,239,.70) 52%, rgba(241,190,211,.72) 100%); }
+    .quantity-controls button.has-duplicates { background:linear-gradient(135deg,#fff0a3 0%,#f4c342 25%,#d99a1f 55%,#ffe28a 78%,#b97913 100%); color:#49300d; border:1px solid #fff0ad; box-shadow:0 3px 0 #936018,0 5px 10px rgba(74,47,8,.22),inset 0 2px 3px rgba(255,255,255,.85); }
     .cards-summary { background:#efe6da; border-radius:10px; padding:12px; margin:12px 0; }
     .filter-buttons { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; }
     .filter-buttons button { margin:0; padding:8px 12px; font-size:13px; }
@@ -2328,14 +2329,14 @@
         const container = document.createElement("div"); container.className = "cards";
         setCards.forEach(card => {
           const q = quantities.get(card.id) || 0;
-          const item = document.createElement("div"); item.className = "card-item" + (q > 0 ? " owned-card" : "");
+          const item = document.createElement("div"); item.className = "card-item" + (q >= 2 ? " owned-card" : "");
           const number = document.createElement("span"); number.className = "card-number"; number.textContent = "#" + card.card_number; item.appendChild(number);
           const name = document.createElement("span"); name.textContent = card.name_fr || card.name; item.appendChild(name);
           if (card.is_gold) { const gold = document.createElement("span"); gold.className = "gold"; gold.textContent = "⭐ Dorée"; item.appendChild(gold); }
           const controls = document.createElement("div"); controls.className = "quantity-controls";
-          const minus = document.createElement("button"); minus.textContent = "−"; minus.className = "small-button"; minus.disabled = q === 0;
+          const minus = document.createElement("button"); minus.textContent = "−"; minus.className = "small-button" + (q >= 2 ? " has-duplicates" : ""); minus.disabled = q === 0;
           const value = document.createElement("span"); value.className = "quantity-value"; value.textContent = String(q > 0 ? q - 1 : 0); value.title = "Nombre de doubles (hors exemplaire de base)";
-          const plus = document.createElement("button"); plus.textContent = "+"; plus.className = "small-button";
+          const plus = document.createElement("button"); plus.textContent = "+"; plus.className = "small-button" + (q >= 2 ? " has-duplicates" : "");
           async function changeQuantity(next) {
             minus.disabled = true; plus.disabled = true;
             const { error } = await supabase.from("member_cards").upsert(
