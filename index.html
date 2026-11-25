@@ -457,6 +457,15 @@
       <button id="saveProfileButton">Enregistrer mon pseudo</button>
       <p id="profileFeedback" class="muted" role="status"></p>
     </div>
+    <div class="set" style="max-width:520px;margin:14px auto;text-align:left">
+      <h3>🔔 Notifications sur ton téléphone</h3>
+      <p class="muted">Reçois une alerte même lorsque GO Partage est fermé : demandes sur tes cartes, nouveaux dons à confirmer et nouveaux messages.</p>
+      <p class="muted" id="pushCompatibility">Vérification de la compatibilité...</p>
+      <button id="enablePushButton" type="button">Activer les notifications</button>
+      <button id="disablePushButton" type="button" class="small-button" hidden>Désactiver sur cet appareil</button>
+      <button id="testPushButton" type="button" class="small-button" hidden>Envoyer une notification test</button>
+      <p id="pushFeedback" class="muted" role="status"></p>
+    </div>
   </section>
 
   <section class="panel" id="suggestionsPanel" hidden>
@@ -551,6 +560,123 @@
   const adminPanel = document.getElementById("adminPanel");
 
   const status = document.getElementById("status");
+  const VAPID_PUBLIC_KEY = "8HRhBFhBNJhlGNXkEo7ajaj0XgW7hivIF-3rNCx_FUIQRJe_dtAyUVj91_2UUdOfY-FPhKdEIuE9_l-8KNwHL0";
+
+  async function dispatchPush(type, id) {
+    if (!id) return;
+    try {
+      const { error } = await supabase.functions.invoke("push-dispatch", { body: { type, id } });
+      if (error) console.warn("Notification push non envoyée :", error.message || error);
+    } catch (error) {
+      console.warn("Notification push non envoyée :", error);
+    }
+  }
+
+  function urlBase64ToUint8Array(base64String) {
+    const padding = "=".repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const raw = atob(base64);
+    return Uint8Array.from([...raw].map(char => char.charCodeAt(0)));
+  }
+
+  async function refreshPushControls() {
+    const enable = document.getElementById("enablePushButton");
+    const disable = document.getElementById("disablePushButton");
+    const test = document.getElementById("testPushButton");
+    const compatibility = document.getElementById("pushCompatibility");
+    if (!enable || !disable || !test || !compatibility) return;
+    const supported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+    if (!supported) {
+      compatibility.textContent = "Ce navigateur ne prend pas en charge les notifications push. Essaie avec Chrome ou Safari à jour.";
+      enable.hidden = true; disable.hidden = true; test.hidden = true;
+      return;
+    }
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const installed = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+    if (isIOS && !installed) {
+      compatibility.textContent = "Sur iPhone/iPad, ajoute d’abord GO Partage à l’écran d’accueil (Partager → Sur l’écran d’accueil), puis ouvre l’icône de l’application pour activer les notifications.";
+    } else {
+      compatibility.textContent = Notification.permission === "denied"
+        ? "Les notifications sont bloquées dans les réglages de ton navigateur. Autorise-les dans les réglages du site puis réessaie."
+        : "Les notifications seront envoyées uniquement sur cet appareil après ton accord.";
+    }
+    let subscription = null;
+    try { subscription = await (await navigator.serviceWorker.ready).pushManager.getSubscription(); } catch {}
+    enable.hidden = !!subscription;
+    disable.hidden = !subscription;
+    test.hidden = !subscription;
+  }
+
+  async function enablePushNotifications() {
+    const feedback = document.getElementById("pushFeedback");
+    const button = document.getElementById("enablePushButton");
+    button.disabled = true;
+    try {
+      if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+        throw new Error("Les notifications push ne sont pas prises en charge par ce navigateur.");
+      }
+      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      const installed = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+      if (isIOS && !installed) throw new Error("Sur iPhone/iPad, ajoute GO Partage à l’écran d’accueil puis ouvre l’application depuis son icône.");
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") throw new Error("Autorisation refusée. Tu peux l’autoriser dans les réglages du navigateur.");
+      const registration = await navigator.serviceWorker.ready;
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        });
+      }
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("Reconnecte-toi pour enregistrer cet appareil.");
+      const json = subscription.toJSON();
+      if (!json.endpoint || !json.keys || !json.keys.p256dh || !json.keys.auth) throw new Error("Le navigateur n’a pas fourni les informations nécessaires.");
+      const { error } = await supabase.from("push_subscriptions").insert({
+        user_id: user.id, endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth
+      });
+      if (error && !/duplicate key|unique constraint/i.test(error.message || "")) throw error;
+      feedback.textContent = "Notifications activées sur cet appareil.";
+      await refreshPushControls();
+    } catch (error) {
+      feedback.textContent = error && error.message ? error.message : "Impossible d’activer les notifications.";
+      try { await refreshPushControls(); } catch {}
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function disablePushNotifications() {
+    const feedback = document.getElementById("pushFeedback");
+    const button = document.getElementById("disablePushButton");
+    button.disabled = true;
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      if (subscription) {
+        const endpoint = subscription.endpoint;
+        await supabase.from("push_subscriptions").delete().eq("endpoint", endpoint);
+        await subscription.unsubscribe();
+      }
+      feedback.textContent = "Notifications désactivées sur cet appareil.";
+      await refreshPushControls();
+    } catch (error) {
+      feedback.textContent = error && error.message ? error.message : "Impossible de désactiver les notifications.";
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  document.getElementById("enablePushButton").addEventListener("click", enablePushNotifications);
+  document.getElementById("disablePushButton").addEventListener("click", disablePushNotifications);
+  document.getElementById("testPushButton").addEventListener("click", async () => {
+    const feedback = document.getElementById("pushFeedback");
+    const button = document.getElementById("testPushButton");
+    button.disabled = true;
+    const { error } = await supabase.functions.invoke("push-dispatch", { body: { type: "test" } });
+    feedback.textContent = error ? "Test impossible : " + (error.message || error) : "Notification test envoyée. Vérifie l’écran verrouillé.";
+    button.disabled = false;
+  });
 
   const albumContent = document.getElementById("albumContent");
 
@@ -972,6 +1098,7 @@
     document.getElementById("monopolyGoLinkInput").value = data.monopoly_go_link || "";
     document.getElementById("accountEmail").textContent = user.email || "Compte Facebook connecté";
     feedback.textContent = "";
+    await refreshPushControls();
   }
 
   document.getElementById("saveProfileButton").addEventListener("click", async () => {
@@ -1528,7 +1655,7 @@
               ask.addEventListener("click", async () => {
                 ask.disabled = true;
                 ask.textContent = "Envoi de la demande...";
-                const { error } = await supabase.rpc("request_card", { p_card_id: card.id });
+                const { data: requestId, error } = await supabase.rpc("request_card", { p_card_id: card.id });
                 if (error) {
                   ask.disabled = false;
                   ask.textContent = "Demander gratuitement";
@@ -1537,6 +1664,7 @@
                 }
                 ask.textContent = "Demande envoyée";
                 askInfo.textContent = "Ta demande est transmise. Le donneur pourra la sélectionner pour t'envoyer la carte.";
+                dispatchPush("card_request", requestId);
                 requestedCards.add(card.id);
               });
               item.append(name, detail, ask, askInfo);
@@ -1619,7 +1747,7 @@
           send.addEventListener("click", async () => {
             send.disabled = true;
             send.textContent = "Préparation du don...";
-            const { error } = await supabase.rpc("create_card_transfer", {
+            const { data: transferId, error } = await supabase.rpc("create_card_transfer", {
               p_offer_id: offer.id, p_request_id: request.id
             });
             if (error) {
@@ -1630,6 +1758,7 @@
             }
             info.textContent = "Don préparé ! Le bénéficiaire devra confirmer la réception.";
             send.textContent = "Don envoyé";
+            dispatchPush("transfer_created", transferId);
             await loadMyDonations();
           });
           item.append(name, detail, send, info);
@@ -1761,6 +1890,7 @@
             }
             info.textContent = "Réception confirmée ! La carte a été ajoutée à Mes cartes.";
             confirm.textContent = "Réception confirmée";
+            dispatchPush("transfer_confirmed", transfer.id);
             await loadMyDonations();
           });
           const cancelTransfer = document.createElement("button");
@@ -1991,9 +2121,9 @@
         if (!message || send.disabled) return;
         send.disabled = true;
         feedback.textContent = "Envoi...";
-        const { error: sendError } = await supabase.from("transfer_messages").insert({
+        const { data: sentMessage, error: sendError } = await supabase.from("transfer_messages").insert({
           transfer_id:transfer.id,sender_id:user.id,message
-        });
+        }).select("id").single();
         if (sendError) {
           feedback.textContent = "Message non envoyé : " + sendError.message;
           send.disabled = false;
@@ -2001,6 +2131,7 @@
         }
         input.value = "";
         feedback.textContent = "Message envoyé.";
+        dispatchPush("message", sentMessage && sentMessage.id);
         await refreshMessages();
         send.disabled = false;
         input.focus();
@@ -2455,6 +2586,9 @@
   if (session) {
     await loadAdminAccess(session.user.id);
     await refreshDonationNotifications(false);
+    const openTarget = new URLSearchParams(window.location.search).get("open");
+    if (openTarget === "mes-dons") document.getElementById("myDonationsButton").click();
+    else if (openTarget === "discussion") document.getElementById("myDiscussionsButton").click();
   }
   if (facebookButton) facebookButton.dataset.goPartageModuleReady = "1";
   window.addEventListener("focus", () => refreshDonationNotifications(false));
