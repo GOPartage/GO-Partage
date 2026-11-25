@@ -2812,7 +2812,8 @@
                   importChecked.add(matchedCard.id);
                   // Lecture renforcée du badge +N avec plusieurs traitements d'image.
                   const countXs = [0.075, 0.327, 0.580];
-                  const countYs = [0.365, 0.520, 0.675];
+                  // Utiliser exactement les positions verticales calibrées pour chaque rangée.
+                  const countYs = countTop;
                   const cx = Math.round(bitmap.width * countXs[col]);
                   const cy = Math.round(bitmap.height * countYs[row]);
                   const cw = Math.round(bitmap.width * 0.12);
@@ -2838,8 +2839,7 @@
                     vctx.putImageData(pixels,0,0);
                     variants.push(variant);
                   }
-                  let bestCount = null;
-                  let bestConfidence = -1;
+                  const countVotes = new Map();
                   const countReadings = [];
                   for (const variant of variants) {
                     for (const pageMode of ["7","8"]) {
@@ -2855,14 +2855,28 @@
                       const match = raw.match(/\+?\s*(\d{1,2})/);
                       const confidence = Number(result.data.confidence) || 0;
                       countReadings.push(raw + " (" + Math.round(confidence) + "%)");
-                      if (match && confidence > bestConfidence) {
-                        bestCount = Math.min(99, Number(match[1]));
-                        bestConfidence = confidence;
+                      if (match && confidence >= 25) {
+                        const value = Math.min(99, Number(match[1]));
+                        const vote = countVotes.get(value) || {count:0, confidence:0};
+                        vote.count += 1;
+                        vote.confidence = Math.max(vote.confidence, confidence);
+                        countVotes.set(value, vote);
                       }
                     }
                   }
-                  // Une lecture absente ne devient jamais un zéro inventé.
-                  if (bestCount !== null && bestConfidence >= 20) importQuantities.set(matchedCard.id, bestCount);
+                  // On exige plusieurs lectures concordantes : une lecture isolée ne suffit pas.
+                  let bestCount = null;
+                  let bestVotes = 0;
+                  let bestConfidence = 0;
+                  for (const [value, vote] of countVotes) {
+                    if (vote.count > bestVotes || (vote.count === bestVotes && vote.confidence > bestConfidence)) {
+                      bestCount = value;
+                      bestVotes = vote.count;
+                      bestConfidence = vote.confidence;
+                    }
+                  }
+                  // Une lecture absente ou non concordante reste à vérifier, jamais transformée en zéro.
+                  if (bestCount !== null && bestVotes >= 2) importQuantities.set(matchedCard.id, bestCount);
                   textParts.push("[DOUBLES CARTE " + zone + "] " +
                     (bestCount === null ? "À vérifier — " : "+" + bestCount + " — ") + countReadings.join(" | "));
                 }
