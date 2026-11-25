@@ -709,8 +709,12 @@
     const feedback = document.getElementById("pushFeedback");
     const button = document.getElementById("testPushButton");
     button.disabled = true;
-    const { error } = await supabase.functions.invoke("push-dispatch", { body: { type: "test" } });
-    feedback.textContent = error ? "Test impossible : " + (error.message || error) : "Notification test envoyée. Vérifie l’écran verrouillé.";
+    const { data, error } = await supabase.functions.invoke("push-dispatch", { body: { type: "test" } });
+    feedback.textContent = error
+      ? "Test impossible : " + (error.message || error)
+      : data && data.sent > 0
+        ? "Notification envoyée. Vérifie l’écran verrouillé."
+        : "Aucun appareil n’est actuellement enregistré pour ce compte. Désactive puis réactive les notifications sur cet appareil, puis relance le test.";
     button.disabled = false;
   });
 
