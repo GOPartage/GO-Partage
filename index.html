@@ -535,7 +535,7 @@
     <div id="adminAlbumOverview" class="set">Chargement des albums...</div>
     <div class="set" id="adminAlbumImport">
       <h3>📁 Importer un nouvel album</h3>
-      <p class="muted">Importe un fichier JSON : nom, saison, collections et 9 cartes par collection. L’album sera ajouté sans remplacer l’album actif. Tu pourras l’activer lorsqu’il sera complet (23 collections / 207 cartes).</p>
+      <p class="muted">Importe un fichier JSON : nom, saison, collections et 9 cartes par collection. L’album sera ajouté sans remplacer l’album actif. Tu pourras l’activer lorsqu’il contiendra 9 cartes approuvées par collection.</p>
       <input id="adminAlbumFile" type="file" accept=".json,application/json">
       <p id="adminAlbumFilePreview" class="muted">Aucun fichier sélectionné.</p>
       <label style="display:flex;align-items:center;gap:8px;margin:10px 0"><input id="adminAlbumActivateOnImport" type="checkbox"> Activer immédiatement si l’album est complet</label>
@@ -1282,7 +1282,7 @@
       if (parsed.sets.some(set => set.cards.some(card => !card.name || !Number.isInteger(Number(card.card_number)) || Number(card.card_number)<1))) throw new Error("Chaque carte doit avoir un nom et un numéro entier positif.");
       adminAlbumImportData = parsed;
       preview.textContent = "Fichier valide : " + parsed.name + " · " + parsed.season + " · " + parsed.sets.length + " collection(s) · " + totalCards + " carte(s)." +
-        (parsed.sets.length === 23 && totalCards === 207 ? " Album complet : activation possible." : " Album incomplet : il restera inactif.");
+        (parsed.sets.length > 0 && totalCards === parsed.sets.length * 9 ? " Album complet : activation possible." : " Album incomplet : il restera inactif.");
       adminAlbumImportButton.disabled = false;
       feedback.textContent = "";
     } catch (error) {
@@ -1351,9 +1351,9 @@
         if (!album.is_active) {
           const activate = document.createElement("button"); activate.className="small-button";
           activate.textContent = "Activer cet album";
-          activate.disabled = albumSets.length !== 23 || approvedCards.length !== 207 ||
+          activate.disabled = albumSets.length < 1 || approvedCards.length !== albumSets.length * 9 ||
             albumSets.some(set=>(cards || []).filter(card=>card.set_id===set.id && card.is_approved).length!==9);
-          activate.title = activate.disabled ? "Activation disponible lorsque les 23 collections et 207 cartes (9 par collection) sont validées." : "";
+          activate.title = activate.disabled ? "Activation disponible lorsque chaque collection contient exactement 9 cartes approuvées." : "";
           activate.addEventListener("click",async()=>{
             if (!confirm("Activer " + album.name + " ? L’album actuellement actif sera remplacé pour les demandes et les dons.")) return;
             activate.disabled=true;
