@@ -2664,7 +2664,7 @@
       importBox.appendChild(importTitle);
       const importHelp = document.createElement("p");
       importHelp.className = "muted";
-      importHelp.textContent = "Sélectionne plusieurs captures de tes albums. GO Partage cherchera les cartes reconnues dans tous les sets, puis tu pourras vérifier avant l’enregistrement.";
+      importHelp.textContent = "Sélectionne plusieurs captures de tes albums. GO Partage reconnaît les cartes et leur position ; indique ensuite tes doubles avec + / −. Les quantités ne sont jamais devinées.";
       importBox.appendChild(importHelp);
       const fileInput = document.createElement("input");
       fileInput.type = "file"; fileInput.accept = "image/*"; fileInput.multiple = true;
@@ -2686,7 +2686,7 @@
       scanButton.disabled = !importImages.length || importBusy;
       const importStatus = document.createElement("p");
       importStatus.className = "import-status";
-      importStatus.textContent = importBusy ? "Lecture des captures en cours. Garde cette page ouverte..." : importError ? "Erreur de reconnaissance : " + importError : importText ? "Analyse terminée. Vérifie les cartes proposées ci-dessous." : "Tu peux sélectionner plusieurs captures, même de sets différents.";
+      importStatus.textContent = importBusy ? "Reconnaissance des cartes en cours. Garde cette page ouverte..." : importError ? "Erreur de reconnaissance : " + importError : importText ? "Analyse terminée. Vérifie les cartes proposées ci-dessous." : "Tu peux sélectionner plusieurs captures, même de sets différents.";
       importBox.appendChild(importStatus);
       scanButton.addEventListener("click", async () => {
         if (!importImages.length || importBusy) return;
@@ -2810,75 +2810,9 @@
                   }
                   importMatches.add(matchedCard.id);
                   importChecked.add(matchedCard.id);
-                  // Lecture renforcée du badge +N avec plusieurs traitements d'image.
-                  const countXs = [0.075, 0.327, 0.580];
-                  // Utiliser exactement les positions verticales calibrées pour chaque rangée.
-                  const countYs = countTop;
-                  const cx = Math.round(bitmap.width * countXs[col]);
-                  const cy = Math.round(bitmap.height * countYs[row]);
-                  const cw = Math.round(bitmap.width * 0.12);
-                  const ch = Math.round(bitmap.height * 0.040);
-                  const cropCanvas = document.createElement("canvas");
-                  cropCanvas.width = cw * 10; cropCanvas.height = ch * 10;
-                  const cropCtx = cropCanvas.getContext("2d", {willReadFrequently:true});
-                  cropCtx.imageSmoothingEnabled = true;
-                  cropCtx.imageSmoothingQuality = "high";
-                  cropCtx.drawImage(source,cx,cy,cw,ch,0,0,cropCanvas.width,cropCanvas.height);
-                  const originalPixels = cropCtx.getImageData(0,0,cropCanvas.width,cropCanvas.height);
-                  const variants = [cropCanvas];
-                  for (const threshold of [145, 185]) {
-                    const variant = document.createElement("canvas");
-                    variant.width = cropCanvas.width; variant.height = cropCanvas.height;
-                    const vctx = variant.getContext("2d", {willReadFrequently:true});
-                    const pixels = new ImageData(new Uint8ClampedArray(originalPixels.data), originalPixels.width, originalPixels.height);
-                    for (let p=0;p<pixels.data.length;p+=4) {
-                      const gray=pixels.data[p]*0.299+pixels.data[p+1]*0.587+pixels.data[p+2]*0.114;
-                      const value=gray<threshold?0:255;
-                      pixels.data[p]=pixels.data[p+1]=pixels.data[p+2]=value;
-                    }
-                    vctx.putImageData(pixels,0,0);
-                    variants.push(variant);
-                  }
-                  const countVotes = new Map();
-                  const countReadings = [];
-                  for (const variant of variants) {
-                    for (const pageMode of ["7","8"]) {
-                      await worker.setParameters({
-                        tessedit_pageseg_mode: pageMode,
-                        tessedit_char_whitelist: "+0123456789",
-                        classify_bln_numeric_mode: "1",
-                        load_system_dawg: "0",
-                        load_freq_dawg: "0"
-                      });
-                      const result = await worker.recognize(variant);
-                      const raw = (result.data.text || "").trim();
-                      const match = raw.match(/\+?\s*(\d{1,2})/);
-                      const confidence = Number(result.data.confidence) || 0;
-                      countReadings.push(raw + " (" + Math.round(confidence) + "%)");
-                      if (match && confidence >= 25) {
-                        const value = Math.min(99, Number(match[1]));
-                        const vote = countVotes.get(value) || {count:0, confidence:0};
-                        vote.count += 1;
-                        vote.confidence = Math.max(vote.confidence, confidence);
-                        countVotes.set(value, vote);
-                      }
-                    }
-                  }
-                  // On exige plusieurs lectures concordantes : une lecture isolée ne suffit pas.
-                  let bestCount = null;
-                  let bestVotes = 0;
-                  let bestConfidence = 0;
-                  for (const [value, vote] of countVotes) {
-                    if (vote.count > bestVotes || (vote.count === bestVotes && vote.confidence > bestConfidence)) {
-                      bestCount = value;
-                      bestVotes = vote.count;
-                      bestConfidence = vote.confidence;
-                    }
-                  }
-                  // Une lecture absente ou non concordante reste à vérifier, jamais transformée en zéro.
-                  if (bestCount !== null && bestVotes >= 2) importQuantities.set(matchedCard.id, bestCount);
-                  textParts.push("[DOUBLES CARTE " + zone + "] " +
-                    (bestCount === null ? "À vérifier — " : "+" + bestCount + " — ") + countReadings.join(" | "));
+                  // Les quantités ne sont plus devinées par OCR : elles seront confirmées
+                  // par l'utilisateur avec les boutons + / − ou « Aucun double ».
+                  textParts.push("[DOUBLES CARTE " + zone + "] à renseigner manuellement.");
                 }
               }
               await worker.setParameters({ tessedit_pageseg_mode: "6", preserve_interword_spaces: "1" });
@@ -2933,21 +2867,40 @@
             (importMatches.has(card.id) ? " ✓ reconnue" : "");
           label.append(checkbox, textLabel); choices.appendChild(label);
           if (importMatches.has(card.id)) {
-            const countLabel = document.createElement("label");
+            const countLabel = document.createElement("div");
             countLabel.className = "import-count";
-            countLabel.textContent = "Doubles : ";
-            const countInput = document.createElement("input");
-            countInput.type = "number"; countInput.min = "0"; countInput.max = "99";
-            countInput.step = "1";
-            countInput.value = importQuantities.has(card.id) ? String(importQuantities.get(card.id)) : "";
-            countInput.placeholder = "À vérifier";
-            countInput.style.width = "64px";
-            countInput.addEventListener("change", () => {
-              const value = Math.max(0, Math.min(99, Number(countInput.value) || 0));
-              countInput.value = String(value);
-              importQuantities.set(card.id, value);
+            countLabel.style.display = "flex";
+            countLabel.style.alignItems = "center";
+            countLabel.style.flexWrap = "wrap";
+            countLabel.style.gap = "8px";
+            const countTitle = document.createElement("strong");
+            countTitle.textContent = "Doubles :";
+            const countValue = document.createElement("strong");
+            countValue.textContent = importQuantities.has(card.id) ? "+" + importQuantities.get(card.id) : "À renseigner";
+            countValue.style.minWidth = "76px";
+            const minusCount = document.createElement("button");
+            minusCount.type = "button"; minusCount.className = "small-button";
+            minusCount.textContent = "−";
+            minusCount.disabled = !importQuantities.has(card.id) || importQuantities.get(card.id) <= 0;
+            minusCount.addEventListener("click", () => {
+              importQuantities.set(card.id, Math.max(0, (importQuantities.get(card.id) || 0) - 1));
+              render();
             });
-            countLabel.appendChild(countInput);
+            const plusCount = document.createElement("button");
+            plusCount.type = "button"; plusCount.className = "small-button";
+            plusCount.textContent = "+";
+            plusCount.addEventListener("click", () => {
+              importQuantities.set(card.id, Math.min(99, (importQuantities.get(card.id) || 0) + 1));
+              render();
+            });
+            const noneCount = document.createElement("button");
+            noneCount.type = "button"; noneCount.className = "small-button";
+            noneCount.textContent = "Aucun double";
+            noneCount.addEventListener("click", () => {
+              importQuantities.set(card.id, 0);
+              render();
+            });
+            countLabel.append(countTitle, minusCount, countValue, plusCount, noneCount);
             choices.appendChild(countLabel);
           }
         });
