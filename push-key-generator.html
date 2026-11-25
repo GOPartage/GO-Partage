@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f4d98d">
+<title>Générateur de clés Web Push — GO Partage</title>
+<style>
+body{font-family:Arial,sans-serif;max-width:760px;margin:28px auto;padding:16px;color:#3b312d;background:#fffaf0}
+main{background:#fff;border:1px solid #e8d9bd;border-radius:16px;padding:22px;box-shadow:0 8px 24px #0001}
+h1{font-size:24px}p{line-height:1.5}.key{display:block;width:100%;box-sizing:border-box;min-height:76px;padding:10px;border:1px solid #c8a26a;border-radius:8px;overflow-wrap:anywhere;background:#fffaf2;font:13px monospace}
+button{padding:12px 16px;border:0;border-radius:8px;background:#f4d98d;color:#3b312d;font-weight:bold;cursor:pointer;margin:6px 4px 6px 0}
+.warn{background:#fff0e8;border-left:4px solid #c65b35;padding:12px;border-radius:6px}
+small{color:#78695d}
+</style>
+</head>
+<body>
+<main>
+<h1>🔐 Clés de notifications GO Partage</h1>
+<p>Cette page génère une paire de clés directement dans ton navigateur. Les clés ne sont envoyées à aucun serveur et ne sont pas enregistrées par cette page.</p>
+<button id="generate">Générer une nouvelle paire de clés</button>
+<section id="results" hidden>
+<h3>Clé publique — à me transmettre pour configurer GO Partage</h3>
+<div id="publicKey" class="key"></div>
+<button data-copy="publicKey">Copier la clé publique</button>
+<h3>Clé privée — à garder secrète</h3>
+<div id="privateKey" class="key"></div>
+<button data-copy="privateKey">Copier la clé privée</button>
+<p class="warn"><strong>Important :</strong> ne publie jamais la clé privée et ne me l’envoie pas. Colle-la uniquement dans Supabase → Edge Functions → Secrets sous le nom <code>VAPID_PRIVATE_KEY</code>. Ajoute aussi la clé publique sous <code>VAPID_PUBLIC_KEY</code>.</p>
+<small>Si tu génères une nouvelle paire, l’ancienne paire ne fonctionnera plus pour les nouveaux appareils.</small>
+</section>
+<p id="status" role="status"></p>
+</main>
+<script>
+const toBase64Url = bytes => {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+};
+document.getElementById("generate").addEventListener("click", async () => {
+  const status = document.getElementById("status");
+  try {
+    const pair = await crypto.subtle.generateKey({name:"ECDSA",namedCurve:"P-256"},true,["sign","verify"]);
+    const jwk = await crypto.subtle.exportKey("jwk",pair.privateKey);
+    const publicBytes = new Uint8Array(65);
+    publicBytes[0] = 4;
+    publicBytes.set(Uint8Array.from(atob(jwk.x.replace(/-/g,"+").replace(/_/g,"/")+"==".slice((jwk.x.length+2)%4)),c=>c.charCodeAt(0)),1);
+    publicBytes.set(Uint8Array.from(atob(jwk.y.replace(/-/g,"+").replace(/_/g,"/")+"==".slice((jwk.y.length+2)%4)),c=>c.charCodeAt(0)),33);
+    document.getElementById("publicKey").textContent = toBase64Url(publicBytes);
+    document.getElementById("privateKey").textContent = jwk.d;
+    document.getElementById("results").hidden = false;
+    status.textContent = "Paire générée localement.";
+  } catch (error) {
+    status.textContent = "Génération impossible : " + (error.message || error);
+  }
+});
+document.querySelectorAll("[data-copy]").forEach(button => button.addEventListener("click", async () => {
+  const text = document.getElementById(button.dataset.copy).textContent;
+  try { await navigator.clipboard.writeText(text); button.textContent = "Copié !"; }
+  catch { button.textContent = "Sélectionne et copie le texte manuellement."; }
+}));
+</script>
+</body>
+</html>
