@@ -3077,6 +3077,9 @@
     status.textContent = "Impossible de restaurer la connexion : " + sessionError.message;
   }
   displaySession(session);
+  if (!session && /(?:^|[&#])_=_/.test(window.location.hash)) {
+    status.textContent = "Facebook est revenu vers GO Partage sans transmettre le code de connexion à Supabase. Dans Facebook Developers, vérifie l’URI de redirection OAuth valide : https://emcmvflmdxiwzanxggmu.supabase.co/auth/v1/callback.";
+  }
   if (session) {
     await loadAdminAccess(session.user.id);
     await refreshDonationNotifications(false);
@@ -3135,7 +3138,7 @@
             flowType: "pkce",
             persistSession: true,
             autoRefreshToken: true,
-            detectSessionInUrl: false,
+            detectSessionInUrl: true,
             storageKey: "sb-emcmvflmdxiwzanxggmu-auth-token",
             storage: window.localStorage
           }
