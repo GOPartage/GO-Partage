@@ -1196,8 +1196,8 @@
       const details = document.createElement("p"); details.className = "muted";
       details.textContent = (member.account_status === "active" ? "🟢 Actif" : "⛔ Suspendu") +
         " · Inscrit le " + new Date(member.joined_at).toLocaleDateString("fr-FR") +
-        " · " + member.confirmed_donations + " don(s) confirmé(s) · " +
-        member.confirmed_receptions + " réception(s) · " + member.open_requests +
+        " · 📤 " + member.confirmed_donations + " don(s) confirmé(s) · 📥 " +
+        member.confirmed_receptions + " réception(s) confirmée(s) · " + member.open_requests +
         " demande(s) ouverte(s) · " + member.active_offers + " don(s) proposé(s)";
       row.append(title,details);
       if (member.member_id !== (window.goPartageCurrentUserId || "")) {
