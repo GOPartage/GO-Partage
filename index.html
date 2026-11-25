@@ -1831,14 +1831,14 @@
     cardSelect.style.padding = "12px";
     cardSelect.style.borderRadius = "8px";
     cardSelect.style.border = "1px solid #c8a26a";
-    const available = cards.filter(card => (quantities.get(card.id) || 0) > (reserved.get(card.id) || 0) && card.is_tradable_now);
+    // Un exemplaire reste toujours dans la collection : seuls les exemplaires au-delà du premier sont des doubles.\n    const available = cards.filter(card => Math.max((quantities.get(card.id) || 0) - 1 - (reserved.get(card.id) || 0), 0) > 0 && card.is_tradable_now);
     const placeholder = document.createElement("option");
     placeholder.value = "";
     placeholder.textContent = available.length ? "Choisis une carte en double" : "Aucun doublon disponible pour le don";
     cardSelect.appendChild(placeholder);
     available.forEach(card => {
       const set = setById.get(card.set_id);
-      const free = (quantities.get(card.id) || 0) - (reserved.get(card.id) || 0);
+      const free = Math.max((quantities.get(card.id) || 0) - 1 - (reserved.get(card.id) || 0), 0);
       const option = document.createElement("option");
       option.value = card.id;
       option.textContent = (set ? (set.name_fr || set.name) + " · " : "") + "#" + card.card_number + " " + (card.name_fr || card.name) + " — " + free + " disponible(s)";
@@ -1885,7 +1885,7 @@
       const quantity = Number.parseInt(qtyInput.value, 10);
       if (!cardId) { feedback.textContent = "Choisis d’abord une carte."; return; }
       if (!Number.isInteger(quantity) || quantity < 1) { feedback.textContent = "Indique une quantité valide."; return; }
-      const free = (quantities.get(cardId) || 0) - (reserved.get(cardId) || 0);
+      const free = Math.max((quantities.get(cardId) || 0) - 1 - (reserved.get(cardId) || 0), 0);
       if (quantity > free) { feedback.textContent = "Tu n’as que " + free + " exemplaire(s) disponible(s)."; return; }
       publish.disabled = true;
       feedback.textContent = "Publication du don...";
