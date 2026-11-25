@@ -576,19 +576,31 @@
       const { data: incoming, error: incomingError } = await supabase.from("transfers")
         .select("id").eq("recipient_id", user.id).eq("status", "awaiting_recipient");
       if (incomingError) throw incomingError;
-      const transferIds = (incoming || []).map(row => row.id);
+      const incomingTransferIds = (incoming || []).map(row => row.id);
+      const { data: outgoing, error: outgoingError } = await supabase.from("transfers")
+        .select("id").eq("donor_id", user.id).eq("status", "awaiting_recipient");
+      if (outgoingError) throw outgoingError;
+      const outgoingTransferIds = (outgoing || []).map(row => row.id);
       const key = "goPartageDonationNotificationsSeen:" + user.id;
-      let seen = { requests: [], transfers: [] };
+      let seen = { requests: [], transfers: [], incomingTransfers: [], outgoingTransfers: [] };
       try { seen = JSON.parse(localStorage.getItem(key) || '{"requests":[],"transfers":[]}'); } catch (_) {}
+      const previouslySeenIncoming = seen.incomingTransfers || seen.transfers || [];
+      const previouslySeenOutgoing = seen.outgoingTransfers || [];
       if (markSeen) {
-        seen = { requests: requestIds, transfers: transferIds };
+        seen = {
+          requests: requestIds,
+          incomingTransfers: incomingTransferIds,
+          outgoingTransfers: outgoingTransferIds
+        };
         localStorage.setItem(key, JSON.stringify(seen));
         donationNotificationDot.hidden = true;
       } else {
         const knownRequests = new Set(seen.requests || []);
-        const knownTransfers = new Set(seen.transfers || []);
+        const knownIncoming = new Set(previouslySeenIncoming);
+        const knownOutgoing = new Set(previouslySeenOutgoing);
         donationNotificationDot.hidden = !requestIds.some(id => !knownRequests.has(id)) &&
-          !transferIds.some(id => !knownTransfers.has(id));
+          !incomingTransferIds.some(id => !knownIncoming.has(id)) &&
+          !outgoingTransferIds.some(id => !knownOutgoing.has(id));
       }
     } catch (error) {
       console.warn("Notifications GO Partage indisponibles :", error);
@@ -617,7 +629,7 @@
       const welcomeKey = "goPartageWelcomeSeen:" + session.user.id;
       if (!localStorage.getItem(welcomeKey)) {
         localStorage.setItem(welcomeKey, "1");
-        alert("Bienvenue sur GO Partage !\n\nGO Partage est une communauté d’entraide entre joueurs de Monopoly GO. Tu peux proposer tes cartes en double et demander gratuitement celles qui te manquent.\n\nQUOTA DE DONS\nTa première demande est possible sans avoir encore donné. Après ta première réception confirmée : 1 à 2 réceptions = 1 don confirmé requis ; 3 à 4 = 2 dons ; 5 à 6 = 3 dons ; et ainsi de suite. Un don compte uniquement lorsque le bénéficiaire confirme l’avoir reçu.\n\nCONSEIL IMPORTANT\nPrends une capture d’écran au moment où tu envoies chaque carte et conserve-la. Elle pourra servir de preuve en cas de désaccord ou de litige.\n\nMerci de faire vivre GO Partage !");
+        alert("Bienvenue sur GO Partage !\n\nGO Partage est une communauté d’entraide entre joueurs de Monopoly GO. Tu peux proposer tes cartes en double et demander gratuitement celles qui te manquent.\n\nQUOTA DE DONS\nTa première demande est possible sans avoir encore donné. Après ta première réception confirmée, tu dois avoir au minimum un don confirmé de moins que ton nombre de réceptions : 1 réception = 0 don requis ; 2 réceptions = 1 don ; 3 réceptions = 2 dons ; 10 réceptions = 9 dons. Un don compte uniquement lorsque le bénéficiaire confirme l’avoir reçu.\n\nCONSEIL IMPORTANT\nPrends une capture d’écran au moment où tu envoies chaque carte et conserve-la. Elle pourra servir de preuve en cas de désaccord ou de litige.\n\nMerci de faire vivre GO Partage !");
       }
 
     } else {
