@@ -2193,7 +2193,7 @@
                   await worker.setParameters({ tessedit_pageseg_mode: "7", tessedit_char_whitelist: "0123456789", classify_bln_numeric_mode: "1" });
                   const countResult = await worker.recognize(countCanvas);
                   const countText = countResult.data.text || "";
-                  const countMatch = countText.match(/(\\d{1,2})/);
+                  const countMatch = countText.match(/(\d{1,2})/);
                   const doubles = countMatch ? Math.min(99, Number(countMatch[1])) : 0;
                   importQuantities.set(matchedCard.id, Math.max(importQuantities.get(matchedCard.id) || 0, doubles));
                   textParts.push("[DOUBLES CARTE " + zone + "] " + countText);
