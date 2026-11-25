@@ -2709,6 +2709,8 @@
 
       const importBox = document.createElement("div");
       importBox.className = "import-box";
+      // Scanner conservé dans le code, mais désactivé pour la première diffusion publique.
+      importBox.hidden = true;
       const importTitle = document.createElement("h3");
       importTitle.textContent = "📷 Scanner plusieurs sets";
       importBox.appendChild(importTitle);
