@@ -2329,14 +2329,14 @@
         const container = document.createElement("div"); container.className = "cards";
         setCards.forEach(card => {
           const q = quantities.get(card.id) || 0;
-          const item = document.createElement("div"); item.className = "card-item" + (q >= 2 ? " owned-card" : "");
+          const item = document.createElement("div"); item.className = "card-item" + (q >= 1 ? " owned-card" : "");
           const number = document.createElement("span"); number.className = "card-number"; number.textContent = "#" + card.card_number; item.appendChild(number);
           const name = document.createElement("span"); name.textContent = card.name_fr || card.name; item.appendChild(name);
           if (card.is_gold) { const gold = document.createElement("span"); gold.className = "gold"; gold.textContent = "⭐ Dorée"; item.appendChild(gold); }
           const controls = document.createElement("div"); controls.className = "quantity-controls";
-          const minus = document.createElement("button"); minus.textContent = "−"; minus.className = "small-button" + (q >= 2 ? " has-duplicates" : ""); minus.disabled = q === 0;
-          const value = document.createElement("span"); value.className = "quantity-value"; value.textContent = String(q > 0 ? q - 1 : 0); value.title = "Nombre de doubles (hors exemplaire de base)";
-          const plus = document.createElement("button"); plus.textContent = "+"; plus.className = "small-button" + (q >= 2 ? " has-duplicates" : "");
+          const minus = document.createElement("button"); minus.textContent = "−"; minus.className = "small-button" + (q >= 1 ? " has-duplicates" : ""); minus.disabled = q === 0;
+          const value = document.createElement("span"); value.className = "quantity-value"; value.textContent = q > 1 ? "+" + String(q - 1) : ""; value.title = "Nombre de doubles disponibles (hors exemplaire de base)";
+          const plus = document.createElement("button"); plus.textContent = "+"; plus.className = "small-button" + (q >= 1 ? " has-duplicates" : "");
           async function changeQuantity(next) {
             minus.disabled = true; plus.disabled = true;
             const { error } = await supabase.from("member_cards").upsert(
