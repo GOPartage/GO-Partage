@@ -168,6 +168,8 @@
       gap:12px;
     }
     .tile-wide { grid-column:1 / -1; padding:22px 12px; font-size:18px; }
+    .notification-tile { position:relative; }
+    .notification-dot { position:absolute; top:8px; right:10px; width:13px; height:13px; border-radius:50%; background:#e32636; border:2px solid #fffaf0; box-shadow:0 1px 5px rgba(0,0,0,.28); }
     #facebookButton, #logoutButton { background:linear-gradient(135deg,#fff0a3 0%,#f4c342 25%,#d99a1f 55%,#ffe28a 78%,#b97913 100%); color:#49300d; border:1px solid #fff0ad; box-shadow:0 5px 0 #936018,0 8px 18px rgba(74,47,8,.24),inset 0 2px 3px rgba(255,255,255,.85); }
 
     .tile {
@@ -398,7 +400,7 @@
 
       <button class="tile" id="myCardsButton">🃏<br>Mes cartes</button>
 
-      <button class="tile" id="myDonationsButton">🤝<br>Mes dons</button>
+      <button class="tile notification-tile" id="myDonationsButton">🤝<br>Mes dons<span class="notification-dot" id="myDonationsNotificationDot" hidden aria-label="Nouveautés à consulter"></span></button>
       <button class="tile" id="myDiscussionsButton">💬<br>Discussion</button>
       <button class="tile tile-wide" id="donationBankButton">🏦<br>Banque des dons</button>
       <button class="tile" id="myAccountButton">👤<br>Mon compte</button>
@@ -521,7 +523,8 @@
       flowType: "pkce",
       persistSession: true,
       autoRefreshToken: true,
-      detectSessionInUrl: false,
+      detectSessionInUrl: true,
+      storageKey: "sb-emcmvflmdxiwzanxggmu-auth-token",
       storage: window.localStorage
     }
   });
@@ -550,6 +553,50 @@
   const status = document.getElementById("status");
 
   const albumContent = document.getElementById("albumContent");
+
+  const donationNotificationDot = document.getElementById("myDonationsNotificationDot");
+  let notificationRefreshBusy = false;
+  async function refreshDonationNotifications(markSeen = false) {
+    if (notificationRefreshBusy) return;
+    notificationRefreshBusy = true;
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user || !donationNotificationDot) return;
+      const { data: offers, error: offersError } = await supabase.from("card_offers")
+        .select("card_id").eq("member_id", user.id).eq("status", "active");
+      if (offersError) throw offersError;
+      const cardIds = [...new Set((offers || []).map(row => row.card_id))];
+      let requestIds = [];
+      if (cardIds.length) {
+        const { data: requests, error: requestsError } = await supabase.from("card_requests")
+          .select("id").in("card_id", cardIds).eq("status", "active");
+        if (requestsError) throw requestsError;
+        requestIds = (requests || []).map(row => row.id);
+      }
+      const { data: incoming, error: incomingError } = await supabase.from("transfers")
+        .select("id").eq("recipient_id", user.id).eq("status", "awaiting_recipient");
+      if (incomingError) throw incomingError;
+      const transferIds = (incoming || []).map(row => row.id);
+      const key = "goPartageDonationNotificationsSeen:" + user.id;
+      let seen = { requests: [], transfers: [] };
+      try { seen = JSON.parse(localStorage.getItem(key) || '{"requests":[],"transfers":[]}'); } catch (_) {}
+      if (markSeen) {
+        seen = { requests: requestIds, transfers: transferIds };
+        localStorage.setItem(key, JSON.stringify(seen));
+        donationNotificationDot.hidden = true;
+      } else {
+        const knownRequests = new Set(seen.requests || []);
+        const knownTransfers = new Set(seen.transfers || []);
+        donationNotificationDot.hidden = !requestIds.some(id => !knownRequests.has(id)) &&
+          !transferIds.some(id => !knownTransfers.has(id));
+      }
+    } catch (error) {
+      console.warn("Notifications GO Partage indisponibles :", error);
+    } finally {
+      notificationRefreshBusy = false;
+    }
+  }
+
 
   function displaySession(session) {
 
@@ -644,6 +691,7 @@
   document.getElementById("myDonationsButton").addEventListener("click", async () => {
     dashboard.hidden = true;
     myDonationsPanel.hidden = false;
+    await refreshDonationNotifications(true);
     await loadMyDonations();
   });
 
@@ -2364,8 +2412,12 @@
   supabase.auth.onAuthStateChange((event, session) => {
     displaySession(session);
     if (event === "SIGNED_IN" && session) {
-      Promise.resolve().then(() => loadAdminAccess(session.user.id));
+      Promise.resolve().then(async () => {
+        await loadAdminAccess(session.user.id);
+        await refreshDonationNotifications(false);
+      });
     }
+    if (event === "SIGNED_OUT" && donationNotificationDot) donationNotificationDot.hidden = true;
   });
 
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -2374,8 +2426,18 @@
     status.textContent = "Impossible de restaurer la connexion : " + sessionError.message;
   }
   displaySession(session);
-  if (session) await loadAdminAccess(session.user.id);
+  if (session) {
+    await loadAdminAccess(session.user.id);
+    await refreshDonationNotifications(false);
+  }
   if (facebookButton) facebookButton.dataset.goPartageModuleReady = "1";
+  window.addEventListener("focus", () => refreshDonationNotifications(false));
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) refreshDonationNotifications(false);
+  });
+  window.setInterval(() => {
+    if (!document.hidden) refreshDonationNotifications(false);
+  }, 45000);
 
   // Installation de GO Partage comme application sur le téléphone
   if ("serviceWorker" in navigator) {
@@ -2392,68 +2454,6 @@
 
 
 
-
-
-<!-- Traitement explicite du retour OAuth avant le démarrage du module principal -->
-<script>
-(function () {
-  const params = new URLSearchParams(window.location.search);
-  const code = params.get("code");
-  const oauthError = params.get("error_description") || params.get("error");
-  if (!code && !oauthError) return;
-
-  const status = document.getElementById("status");
-  const button = document.getElementById("facebookButton");
-  if (status) status.textContent = code
-    ? "Finalisation de ta connexion Facebook..."
-    : "La connexion Facebook a été refusée : " + oauthError;
-
-  if (button) button.disabled = true;
-  window.goPartageOAuthCallbackRecovery = true;
-
-  (async function () {
-    try {
-      if (oauthError) throw new Error(oauthError);
-      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-      const client = createClient(
-        "https://emcmvflmdxiwzanxggmu.supabase.co",
-        "sb_publishable_DewNBprHDwNNxDm24c4_sQ_nqaFhXT_",
-        {
-          auth: {
-            flowType: "pkce",
-            persistSession: true,
-            autoRefreshToken: true,
-            detectSessionInUrl: false,
-            storageKey: "sb-emcmvflmdxiwzanxggmu-auth-token",
-            storage: window.localStorage
-          }
-        }
-      );
-      const { data, error } = await client.auth.exchangeCodeForSession(code);
-      if (error) throw error;
-      if (!data || !data.session) {
-        throw new Error("Facebook a répondu, mais aucune session utilisateur n'a été enregistrée.");
-      }
-
-      params.delete("code");
-      params.delete("state");
-      params.delete("error");
-      params.delete("error_description");
-      const cleanUrl = window.location.pathname +
-        (params.toString() ? "?" + params.toString() : "") + window.location.hash;
-      window.history.replaceState({}, document.title, cleanUrl);
-      window.location.reload();
-    } catch (error) {
-      console.error("Récupération du retour OAuth GO Partage :", error);
-      if (status) status.textContent =
-        "La connexion Facebook n'a pas pu être finalisée : " +
-        (error && error.message ? error.message : "erreur inconnue") +
-        ". Tu peux réessayer.";
-      if (button) button.disabled = false;
-    }
-  })();
-})();
-</script>
 
 
 <!-- Connexion invitée indépendante : fonctionne aussi si le module principal ne démarre pas -->
