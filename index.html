@@ -635,10 +635,27 @@
         : "Les notifications seront envoyées uniquement sur cet appareil après ton accord.";
     }
     let subscription = null;
-    try { subscription = await (await navigator.serviceWorker.ready).pushManager.getSubscription(); } catch {}
-    enable.hidden = !!subscription;
+    let registeredOnAccount = false;
+    try {
+      subscription = await (await navigator.serviceWorker.ready).pushManager.getSubscription();
+      if (subscription) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: savedSubscriptions, error: savedError } = await supabase
+            .from("push_subscriptions").select("endpoint").eq("user_id", user.id);
+          if (!savedError) registeredOnAccount = (savedSubscriptions || [])
+            .some(item => item.endpoint === subscription.endpoint);
+        }
+      }
+    } catch {}
+    enable.hidden = !!subscription && registeredOnAccount;
+    if (subscription && !registeredOnAccount) enable.textContent = "Enregistrer les notifications sur mon compte";
+    else enable.textContent = "Activer les notifications";
     disable.hidden = !subscription;
-    test.hidden = !subscription;
+    test.hidden = !subscription || !registeredOnAccount;
+    if (subscription && !registeredOnAccount) {
+      compatibility.textContent = "Un abonnement existe sur cet appareil, mais il n’est pas enregistré sur ton compte GO Partage. Clique sur « Enregistrer les notifications sur mon compte » pour recevoir les alertes.";
+    }
   }
 
   async function enablePushNotifications() {
