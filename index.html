@@ -397,6 +397,7 @@
       <button class="tile" id="myCardsButton">🃏<br>Mes cartes</button>
 
       <button class="tile" id="myDonationsButton">🤝<br>Mes dons</button>
+      <button class="tile" id="myDiscussionsButton">💬<br>Discussion</button>
       <button class="tile tile-wide" id="donationBankButton">🏦<br>Banque des dons</button>
       <button class="tile" id="myAccountButton">👤<br>Mon compte</button>
 
@@ -422,6 +423,13 @@
     <h2>🤝 Mes dons</h2>
     <p class="muted">Propose gratuitement tes cartes en double à la communauté.</p>
     <div id="myDonationsContent">Chargement de tes dons...</div>
+  </section>
+
+  <section class="panel" id="myDiscussionsPanel" hidden>
+    <button class="small-button" id="backFromDiscussionsButton">← Retour</button>
+    <h2>💬 Discussion</h2>
+    <p class="muted">Les conversations s’ouvrent automatiquement après la réception confirmée d’un don.</p>
+    <div id="myDiscussionsContent">Chargement de tes discussions...</div>
   </section>
 
   <section class="panel" id="donationBankPanel" hidden>
@@ -529,6 +537,8 @@
   const myCardsContent = document.getElementById("myCardsContent");
   const myDonationsPanel = document.getElementById("myDonationsPanel");
   const myDonationsContent = document.getElementById("myDonationsContent");
+  const myDiscussionsPanel = document.getElementById("myDiscussionsPanel");
+  const myDiscussionsContent = document.getElementById("myDiscussionsContent");
   const bankDonationsPanel = document.getElementById("donationBankPanel");
   const bankDonationsContent = document.getElementById("bankDonationsContent");
   const myAccountPanel = document.getElementById("myAccountPanel");
@@ -570,6 +580,7 @@
       dashboard.hidden = true;
       myCardsPanel.hidden = true;
       myDonationsPanel.hidden = true;
+      myDiscussionsPanel.hidden = true;
       bankDonationsPanel.hidden = true;
       myAccountPanel.hidden = true;
       suggestionsPanel.hidden = true;
@@ -636,6 +647,15 @@
 
   document.getElementById("backFromDonationsButton").addEventListener("click", () => {
     myDonationsPanel.hidden = true;
+    dashboard.hidden = false;
+  });
+  document.getElementById("myDiscussionsButton").addEventListener("click", async () => {
+    dashboard.hidden = true;
+    myDiscussionsPanel.hidden = false;
+    await loadMyDiscussions();
+  });
+  document.getElementById("backFromDiscussionsButton").addEventListener("click", () => {
+    myDiscussionsPanel.hidden = true;
     dashboard.hidden = false;
   });
   document.getElementById("donationBankButton").addEventListener("click", async () => {
@@ -1764,167 +1784,172 @@
 
     }
 
-    // MESSAGERIE PRIVÉE ENTRE LES DEUX MEMBRES D'UN DON
-    const chatTitle = document.createElement("h3");
-    chatTitle.textContent = "💬 Nos conversations";
-    myDonationsContent.appendChild(chatTitle);
-    const chatIntro = document.createElement("p");
-    chatIntro.className = "muted";
-    chatIntro.textContent = "Échange un message avec la personne concernée par un don : remerciements, précisions ou envie de rendre service à ton tour.";
-    myDonationsContent.appendChild(chatIntro);
-    const chatArea = document.createElement("div");
-    chatArea.className = "set";
-    chatArea.style.maxWidth = "620px";
-    chatArea.style.margin = "12px auto";
-    myDonationsContent.appendChild(chatArea);
 
-    const { data: chatTransfers, error: chatTransfersError } = await supabase
-      .from("transfers")
-      .select("id, donor_id, recipient_id, card_id, status, created_at")
-      .or("donor_id.eq." + user.id + ",recipient_id.eq." + user.id)
-      .order("created_at", { ascending: false });
-    if (chatTransfersError) {
-      chatArea.textContent = "Impossible de charger les conversations : " + chatTransfersError.message;
-    } else if (!chatTransfers || !chatTransfers.length) {
-      chatArea.textContent = "Tes conversations apparaîtront ici dès qu'un don sera préparé.";
-    } else {
-      const chatCardIds = [...new Set(chatTransfers.map(t => t.card_id))];
-      await ensureDonationCardDetails(chatCardIds);
-      const otherIds = [...new Set(chatTransfers.map(t => t.donor_id === user.id ? t.recipient_id : t.donor_id))];
-      const { data: chatProfiles } = await supabase.from("profiles")
-        .select("id, display_name").in("id", otherIds);
-      const chatNames = new Map((chatProfiles || []).map(p => [p.id, p.display_name || "Membre GO Partage"]));
-      const conversations = document.createElement("div");
-      conversations.style.display = "grid";
-      conversations.style.gap = "7px";
-      const conversationBody = document.createElement("div");
-      conversationBody.style.marginTop = "14px";
-      chatArea.append(conversations, conversationBody);
-      let activeChatId = null;
-      let activeChannel = null;
-
-      async function openConversation(transfer) {
-        activeChatId = transfer.id;
-        if (activeChannel) {
-          await supabase.removeChannel(activeChannel);
-          activeChannel = null;
-        }
-        conversations.querySelectorAll("button").forEach(button => {
-          button.style.outline = button.dataset.transferId === transfer.id ? "2px solid #b8905d" : "none";
-        });
-        conversationBody.replaceChildren();
-        const otherId = transfer.donor_id === user.id ? transfer.recipient_id : transfer.donor_id;
-        const otherName = chatNames.get(otherId) || "Membre GO Partage";
-        const card = cardById.get(transfer.card_id);
-        const set = card ? setById.get(card.set_id) : null;
-        const heading = document.createElement("strong");
-        heading.textContent = "Conversation avec " + otherName;
-        const subheading = document.createElement("p");
-        subheading.className = "muted";
-        subheading.textContent = card
-          ? "Don : " + (set ? (set.name_fr || set.name) + " · " : "") + "#" + card.card_number + " " + (card.name_fr || card.name)
-          : "Conversation liée à un don";
-        const messagesBox = document.createElement("div");
-        messagesBox.style.cssText = "display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;padding:10px;background:#fffaf2;border-radius:10px;border:1px solid #e8ded2;text-align:left";
-        const form = document.createElement("form");
-        form.style.cssText = "display:flex;gap:7px;align-items:stretch;margin-top:10px";
-        const input = document.createElement("textarea");
-        input.maxLength = 1000;
-        input.rows = 2;
-        input.placeholder = "Écris ton message...";
-        input.style.cssText = "flex:1;min-width:0;resize:vertical;padding:10px;border:1px solid #c8a26a;border-radius:8px;font:inherit";
-        const send = document.createElement("button");
-        send.type = "submit";
-        send.className = "small-button";
-        send.textContent = "Envoyer";
-        send.style.margin = "0";
-        const feedback = document.createElement("p");
-        feedback.className = "muted";
-        feedback.setAttribute("role", "status");
-        form.append(input, send);
-        conversationBody.append(heading, subheading, messagesBox, form, feedback);
-
-        async function loadMessages() {
-          const { data: messages, error } = await supabase.from("transfer_messages")
-            .select("id, sender_id, message, created_at")
-            .eq("transfer_id", transfer.id).order("created_at", { ascending: true });
-          if (activeChatId !== transfer.id) return;
-          messagesBox.replaceChildren();
-          if (error) {
-            messagesBox.textContent = "Impossible de charger les messages : " + error.message;
-            return;
-          }
-          if (!messages || !messages.length) {
-            const empty = document.createElement("p");
-            empty.className = "muted";
-            empty.textContent = "La conversation commence ici. Tu peux envoyer un petit mot !";
-            messagesBox.appendChild(empty);
-          } else {
-            messages.forEach(message => {
-              const bubble = document.createElement("div");
-              bubble.style.cssText = "align-self:" + (message.sender_id === user.id ? "flex-end" : "flex-start") +
-                ";max-width:88%;padding:9px 12px;border-radius:12px;background:" +
-                (message.sender_id === user.id ? "#efe6da" : "#ffffff") + ";border:1px solid #e8ded2;overflow-wrap:anywhere";
-              const body = document.createElement("div");
-              body.textContent = message.message;
-              const date = document.createElement("small");
-              date.className = "muted";
-              date.textContent = new Date(message.created_at).toLocaleString("fr-FR", { dateStyle:"short", timeStyle:"short" });
-              bubble.append(body, date);
-              messagesBox.appendChild(bubble);
-            });
-            messagesBox.scrollTop = messagesBox.scrollHeight;
-          }
-        }
-        await loadMessages();
-        activeChannel = supabase.channel("transfer-chat-" + transfer.id)
-          .on("postgres_changes", {
-            event: "*", schema: "public", table: "transfer_messages",
-            filter: "transfer_id=eq." + transfer.id
-          }, () => { loadMessages(); })
-          .subscribe();
-
-        form.addEventListener("submit", async event => {
-          event.preventDefault();
-          const message = input.value.trim();
-          if (!message || send.disabled) return;
-          send.disabled = true;
-          feedback.textContent = "Envoi...";
-          const { error } = await supabase.from("transfer_messages").insert({
-            transfer_id: transfer.id,
-            sender_id: user.id,
-            message
-          });
-          if (error) {
-            feedback.textContent = "Message non envoyé : " + error.message;
-            send.disabled = false;
-            return;
-          }
-          input.value = "";
-          feedback.textContent = "Message envoyé.";
-          await loadMessages();
-          send.disabled = false;
-          input.focus();
-        });
-      }
-
-      chatTransfers.forEach(transfer => {
-        const otherId = transfer.donor_id === user.id ? transfer.recipient_id : transfer.donor_id;
-        const card = cardById.get(transfer.card_id);
-        const set = card ? setById.get(card.set_id) : null;
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "small-button";
-        button.dataset.transferId = transfer.id;
-        button.style.cssText = "display:block;width:100%;margin:0;text-align:left";
-        button.textContent = (chatNames.get(otherId) || "Membre GO Partage") + " · " +
-          (card ? (set ? (set.name_fr || set.name) + " · " : "") + "#" + card.card_number : "Don") +
-          " · " + new Date(transfer.created_at).toLocaleDateString("fr-FR");
-        button.addEventListener("click", () => openConversation(transfer));
-        conversations.appendChild(button);
-      });
-      await openConversation(chatTransfers[0]);
+  // DISCUSSIONS : conversations privées disponibles uniquement après réception confirmée
+  async function loadMyDiscussions() {
+    myDiscussionsContent.textContent = "Chargement de tes discussions...";
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      myDiscussionsContent.textContent = "Reconnecte-toi pour accéder à tes discussions.";
+      return;
     }
+
+    const { data: transfers, error } = await supabase.from("transfers")
+      .select("id,donor_id,recipient_id,card_id,created_at")
+      .or("donor_id.eq." + user.id + ",recipient_id.eq." + user.id)
+      .eq("status","confirmed")
+      .order("recipient_confirmed_at", { ascending: false });
+    if (error) {
+      myDiscussionsContent.textContent = "Impossible de charger tes discussions : " + error.message;
+      return;
+    }
+    myDiscussionsContent.replaceChildren();
+    if (!transfers || !transfers.length) {
+      const empty = document.createElement("p");
+      empty.className = "muted";
+      empty.textContent = "Tes discussions apparaîtront ici dès qu’un don que tu as envoyé ou reçu sera confirmé.";
+      myDiscussionsContent.appendChild(empty);
+      return;
+    }
+
+    const cardIds = [...new Set(transfers.map(t => t.card_id))];
+    const { data: cards, error: cardsError } = await supabase.from("cards")
+      .select("id,set_id,card_number,name,name_fr").in("id",cardIds);
+    if (cardsError) {
+      myDiscussionsContent.textContent = "Impossible de charger les cartes : " + cardsError.message;
+      return;
+    }
+    const setIds = [...new Set((cards || []).map(card => card.set_id))];
+    const { data: sets } = setIds.length
+      ? await supabase.from("card_sets").select("id,name,name_fr").in("id",setIds)
+      : { data: [] };
+    const cardById = new Map((cards || []).map(card => [card.id,card]));
+    const setById = new Map((sets || []).map(set => [set.id,set]));
+    const otherIds = [...new Set(transfers.map(t => t.donor_id === user.id ? t.recipient_id : t.donor_id))];
+    const { data: profiles, error: profilesError } = await supabase.from("profiles")
+      .select("id,display_name").in("id",otherIds);
+    if (profilesError) {
+      myDiscussionsContent.textContent = "Impossible de charger les profils : " + profilesError.message;
+      return;
+    }
+    const names = new Map((profiles || []).map(p => [p.id,p.display_name || "Membre GO Partage"]));
+
+    const list = document.createElement("div");
+    list.style.cssText = "display:grid;gap:8px";
+    const body = document.createElement("div");
+    body.style.marginTop = "14px";
+    myDiscussionsContent.append(list,body);
+    let activeTransferId = null;
+    let activeChannel = null;
+
+    async function openChat(transfer) {
+      activeTransferId = transfer.id;
+      if (activeChannel) {
+        await supabase.removeChannel(activeChannel);
+        activeChannel = null;
+      }
+      list.querySelectorAll("button").forEach(button => {
+        button.style.outline = button.dataset.transferId === transfer.id ? "2px solid #b8905d" : "none";
+      });
+      body.replaceChildren();
+      const otherId = transfer.donor_id === user.id ? transfer.recipient_id : transfer.donor_id;
+      const card = cardById.get(transfer.card_id);
+      const set = card ? setById.get(card.set_id) : null;
+      const heading = document.createElement("strong");
+      heading.textContent = "Conversation avec " + (names.get(otherId) || "Membre GO Partage");
+      const detail = document.createElement("p");
+      detail.className = "muted";
+      detail.textContent = card
+        ? "Don confirmé : " + (set ? (set.name_fr || set.name) + " · " : "") + "#" + card.card_number + " " + (card.name_fr || card.name)
+        : "Don confirmé";
+      const messagesBox = document.createElement("div");
+      messagesBox.style.cssText = "display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto;padding:10px;background:#fffaf2;border-radius:10px;border:1px solid #e8ded2;text-align:left";
+      const form = document.createElement("form");
+      form.style.cssText = "display:flex;gap:7px;align-items:stretch;margin-top:10px";
+      const input = document.createElement("textarea");
+      input.maxLength = 1000;
+      input.rows = 2;
+      input.placeholder = "Écris ton message...";
+      input.style.cssText = "flex:1;min-width:0;resize:vertical;padding:10px;border:1px solid #c8a26a;border-radius:8px;font:inherit";
+      const send = document.createElement("button");
+      send.type = "submit";
+      send.className = "small-button";
+      send.textContent = "Envoyer";
+      send.style.margin = "0";
+      const feedback = document.createElement("p");
+      feedback.className = "muted";
+      feedback.setAttribute("role","status");
+      form.append(input,send);
+      body.append(heading,detail,messagesBox,form,feedback);
+
+      async function refreshMessages() {
+        const { data: messages, error: messageError } = await supabase.from("transfer_messages")
+          .select("id,sender_id,message,created_at")
+          .eq("transfer_id",transfer.id).order("created_at",{ascending:true});
+        if (activeTransferId !== transfer.id) return;
+        messagesBox.replaceChildren();
+        if (messageError) {
+          messagesBox.textContent = "Impossible de charger les messages : " + messageError.message;
+          return;
+        }
+        (messages || []).forEach(message => {
+          const bubble = document.createElement("div");
+          bubble.style.cssText = "align-self:" + (message.sender_id === user.id ? "flex-end" : "flex-start") +
+            ";max-width:88%;padding:9px 12px;border-radius:12px;background:" +
+            (message.sender_id === user.id ? "#efe6da" : "#ffffff") + ";border:1px solid #e8ded2;overflow-wrap:anywhere";
+          const text = document.createElement("div");
+          text.textContent = message.message;
+          const date = document.createElement("small");
+          date.className = "muted";
+          date.textContent = new Date(message.created_at).toLocaleString("fr-FR",{dateStyle:"short",timeStyle:"short"});
+          bubble.append(text,date);
+          messagesBox.appendChild(bubble);
+        });
+        messagesBox.scrollTop = messagesBox.scrollHeight;
+      }
+      await refreshMessages();
+      activeChannel = supabase.channel("transfer-chat-" + transfer.id)
+        .on("postgres_changes",{event:"*",schema:"public",table:"transfer_messages",filter:"transfer_id=eq."+transfer.id},refreshMessages)
+        .subscribe();
+
+      form.addEventListener("submit",async event => {
+        event.preventDefault();
+        const message = input.value.trim();
+        if (!message || send.disabled) return;
+        send.disabled = true;
+        feedback.textContent = "Envoi...";
+        const { error: sendError } = await supabase.from("transfer_messages").insert({
+          transfer_id:transfer.id,sender_id:user.id,message
+        });
+        if (sendError) {
+          feedback.textContent = "Message non envoyé : " + sendError.message;
+          send.disabled = false;
+          return;
+        }
+        input.value = "";
+        feedback.textContent = "Message envoyé.";
+        await refreshMessages();
+        send.disabled = false;
+        input.focus();
+      });
+    }
+
+    transfers.forEach(transfer => {
+      const otherId = transfer.donor_id === user.id ? transfer.recipient_id : transfer.donor_id;
+      const card = cardById.get(transfer.card_id);
+      const set = card ? setById.get(card.set_id) : null;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "small-button";
+      button.dataset.transferId = transfer.id;
+      button.style.cssText = "display:block;width:100%;margin:0;text-align:left";
+      button.textContent = (names.get(otherId) || "Membre GO Partage") + " · " +
+        (card ? (set ? (set.name_fr || set.name) + " · " : "") + "#" + card.card_number : "Don") +
+        " · " + new Date(transfer.created_at).toLocaleDateString("fr-FR");
+      button.addEventListener("click",() => openChat(transfer));
+      list.appendChild(button);
+    });
+    await openChat(transfers[0]);
   }
 
   // MES CARTES : inventaire personnel et quantités de doublons
