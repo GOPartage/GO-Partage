@@ -377,6 +377,17 @@
     <button id="guestButton">Continuer en invité</button>
     <p class="muted">Le mode invité ne demande ni Facebook ni adresse e-mail. Attention : ton compte sera lié à cet appareil et à ce navigateur.</p>
 
+    <details style="max-width:440px;margin:18px auto 0;text-align:left;background:#fff0f6;border:1px solid #e8a6c5;border-radius:12px;padding:12px">
+      <summary style="cursor:pointer;font-weight:bold;color:#963b68">🔐 Accès administratrice</summary>
+      <p class="muted">Espace réservé au compte administratrice GO Partage.</p>
+      <label for="adminLoginEmail">Adresse e-mail</label>
+      <input id="adminLoginEmail" type="email" autocomplete="username" placeholder="Adresse e-mail" style="display:block;width:100%;box-sizing:border-box;padding:11px;margin:6px 0 12px;border:1px solid #d79ab7;border-radius:8px">
+      <label for="adminLoginPassword">Mot de passe</label>
+      <input id="adminLoginPassword" type="password" autocomplete="current-password" placeholder="Mot de passe" style="display:block;width:100%;box-sizing:border-box;padding:11px;margin:6px 0 12px;border:1px solid #d79ab7;border-radius:8px">
+      <button id="adminLoginButton" type="button" style="background:linear-gradient(110deg,#f8dce9,#e9a8c8);color:#5c2440">Connexion administratrice</button>
+      <p id="adminLoginFeedback" class="muted" role="status"></p>
+    </details>
+
     <p id="status" role="status"></p>
 
   </section>
@@ -456,6 +467,16 @@
       <p id="accountEmail" class="muted"></p>
       <button id="saveProfileButton">Enregistrer mon pseudo</button>
       <p id="profileFeedback" class="muted" role="status"></p>
+    </div>
+    <div id="adminPasswordSetup" class="set" hidden style="max-width:520px;margin:14px auto;text-align:left;background:#fff0f6;border:1px solid #e8a6c5">
+      <h3 style="color:#963b68">🔐 Sécuriser l’accès administratrice</h3>
+      <p class="muted">Définis un mot de passe pour pouvoir te connecter à l’administration avec ton adresse e-mail, sans passer par Facebook. Cette option est réservée à l’unique compte administratrice.</p>
+      <label for="adminNewPassword">Nouveau mot de passe</label>
+      <input id="adminNewPassword" type="password" autocomplete="new-password" minlength="12" placeholder="12 caractères minimum" style="display:block;width:100%;box-sizing:border-box;padding:11px;margin:6px 0 12px;border:1px solid #d79ab7;border-radius:8px">
+      <label for="adminConfirmPassword">Confirmer le mot de passe</label>
+      <input id="adminConfirmPassword" type="password" autocomplete="new-password" minlength="12" placeholder="Confirme ton mot de passe" style="display:block;width:100%;box-sizing:border-box;padding:11px;margin:6px 0 12px;border:1px solid #d79ab7;border-radius:8px">
+      <button id="saveAdminPasswordButton" type="button" style="background:linear-gradient(110deg,#f8dce9,#e9a8c8);color:#5c2440">Définir mon mot de passe administratrice</button>
+      <p id="adminPasswordFeedback" class="muted" role="status"></p>
     </div>
     <div class="set" style="max-width:520px;margin:14px auto;text-align:left">
       <h3>🔔 Notifications sur ton téléphone</h3>
@@ -927,6 +948,32 @@
       }
     });
   }
+
+  // Connexion par e-mail réservée au compte administratrice.
+  document.getElementById("adminLoginButton").addEventListener("click", async () => {
+    const button = document.getElementById("adminLoginButton");
+    const feedback = document.getElementById("adminLoginFeedback");
+    const email = document.getElementById("adminLoginEmail").value.trim();
+    const password = document.getElementById("adminLoginPassword").value;
+    if (!email || !password) { feedback.textContent = "Renseigne ton adresse e-mail et ton mot de passe."; return; }
+    button.disabled = true;
+    feedback.textContent = "Vérification de l’accès administratrice...";
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles").select("role,status").eq("id", data.user.id).maybeSingle();
+      if (profileError || !profile || profile.role !== "admin" || profile.status !== "active") {
+        await supabase.auth.signOut();
+        throw new Error("Cet accès est réservé à l’unique administratrice active de GO Partage.");
+      }
+      feedback.textContent = "Connexion administratrice réussie.";
+    } catch (error) {
+      feedback.textContent = error && error.message ? error.message : "Connexion impossible.";
+    } finally {
+      button.disabled = false;
+    }
+  });
 
   // DÉCONNEXION
 
@@ -1479,14 +1526,48 @@
     feedback.textContent = "Chargement...";
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { feedback.textContent = "Reconnecte-toi pour accéder à ton compte."; return; }
-    const { data, error } = await supabase.from("profiles").select("display_name, monopoly_go_link").eq("id", user.id).single();
+    const { data, error } = await supabase.from("profiles").select("display_name, monopoly_go_link, role, status").eq("id", user.id).single();
     if (error) { feedback.textContent = "Impossible de charger ton profil : " + error.message; return; }
     document.getElementById("displayNameInput").value = data.display_name || "";
     document.getElementById("monopolyGoLinkInput").value = data.monopoly_go_link || "";
     document.getElementById("accountEmail").textContent = user.email || "Compte Facebook connecté";
+    const passwordSetup = document.getElementById("adminPasswordSetup");
+    passwordSetup.hidden = !(data.role === "admin" && data.status === "active");
+    if (!passwordSetup.hidden) document.getElementById("adminPasswordFeedback").textContent =
+      user.identities && user.identities.some(identity => identity.provider === "email")
+        ? "Tu peux définir ou renouveler ton mot de passe administratrice."
+        : "Ton compte est actuellement connecté avec Facebook. Définis ici ton premier mot de passe pour activer la connexion administratrice par e-mail.";
     feedback.textContent = "";
     await refreshPushControls();
   }
+
+  document.getElementById("saveAdminPasswordButton").addEventListener("click", async () => {
+    const button = document.getElementById("saveAdminPasswordButton");
+    const feedback = document.getElementById("adminPasswordFeedback");
+    const password = document.getElementById("adminNewPassword").value;
+    const confirmation = document.getElementById("adminConfirmPassword").value;
+    if (password.length < 12) { feedback.textContent = "Choisis un mot de passe d’au moins 12 caractères."; return; }
+    if (password !== confirmation) { feedback.textContent = "Les deux mots de passe ne correspondent pas."; return; }
+    button.disabled = true;
+    feedback.textContent = "Enregistrement du mot de passe...";
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("Reconnecte-toi pour continuer.");
+      const { data: profile, error: profileError } = await supabase.from("profiles")
+        .select("role,status").eq("id", user.id).single();
+      if (profileError || !profile || profile.role !== "admin" || profile.status !== "active")
+        throw new Error("Cette opération est réservée à l’administratrice active.");
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
+      document.getElementById("adminNewPassword").value = "";
+      document.getElementById("adminConfirmPassword").value = "";
+      feedback.textContent = "Mot de passe défini. Tu pourras maintenant utiliser « Accès administratrice » avec ton adresse e-mail et ce mot de passe.";
+    } catch (error) {
+      feedback.textContent = error && error.message ? error.message : "Impossible de définir le mot de passe.";
+    } finally {
+      button.disabled = false;
+    }
+  });
 
   document.getElementById("saveProfileButton").addEventListener("click", async () => {
     const input = document.getElementById("displayNameInput");
