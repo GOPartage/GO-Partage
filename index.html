@@ -1831,7 +1831,7 @@
     cardSelect.style.padding = "12px";
     cardSelect.style.borderRadius = "8px";
     cardSelect.style.border = "1px solid #c8a26a";
-    // Un exemplaire reste toujours dans la collection : seuls les exemplaires au-delà du premier sont des doubles.\n    const available = cards.filter(card => Math.max((quantities.get(card.id) || 0) - 1 - (reserved.get(card.id) || 0), 0) > 0 && card.is_tradable_now);
+    const available = cards.filter(card => Math.max((quantities.get(card.id) || 0) - 1 - (reserved.get(card.id) || 0), 0) > 0 && card.is_tradable_now);
     const placeholder = document.createElement("option");
     placeholder.value = "";
     placeholder.textContent = available.length ? "Choisis une carte en double" : "Aucun doublon disponible pour le don";
@@ -3102,9 +3102,9 @@
           }
           if (card.is_gold) { const gold = document.createElement("span"); gold.className = "gold"; gold.textContent = "⭐ Dorée"; item.appendChild(gold); }
           const controls = document.createElement("div"); controls.className = "quantity-controls";
-          const minus = document.createElement("button"); minus.textContent = "−"; minus.className = "small-button" + (q >= 1 ? " has-duplicates" : ""); minus.disabled = q === 0;
+          const minus = document.createElement("button"); minus.textContent = "−"; minus.className = "small-button" + (q > 1 ? " has-duplicates" : ""); minus.disabled = q === 0;
           const value = document.createElement("span"); value.className = "quantity-value"; value.textContent = q > 1 ? "+" + String(q - 1) : ""; value.title = "Nombre de doubles disponibles (hors exemplaire de base)";
-          const plus = document.createElement("button"); plus.textContent = "+"; plus.className = "small-button" + (q >= 1 ? " has-duplicates" : "");
+          const plus = document.createElement("button"); plus.textContent = "+"; plus.className = "small-button" + (q > 1 ? " has-duplicates" : "");
           async function changeQuantity(next) {
             minus.disabled = true; plus.disabled = true;
             const { error } = await supabase.from("member_cards").upsert(
