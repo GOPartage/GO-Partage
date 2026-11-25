@@ -1144,6 +1144,11 @@
   }
 
   async function loadAdminPushTestReports() {
+    if (!window.goPartagePushReportsChannel) {
+      window.goPartagePushReportsChannel = supabase.channel("admin-push-test-reports")
+        .on("postgres_changes",{event:"*",schema:"public",table:"push_test_reports"},() => loadAdminPushTestReports())
+        .subscribe();
+    }
     const box = document.getElementById("adminPushTestReports");
     box.textContent = "Chargement des alertes...";
     const { data: reports, error } = await supabase.from("push_test_reports")
