@@ -569,9 +569,9 @@
       let requestIds = [];
       if (cardIds.length) {
         const { data: requests, error: requestsError } = await supabase.from("card_requests")
-          .select("id").in("card_id", cardIds).eq("status", "active");
+          .select("id,member_id").in("card_id", cardIds).eq("status", "active");
         if (requestsError) throw requestsError;
-        requestIds = (requests || []).map(row => row.id);
+        requestIds = (requests || []).filter(row => row.member_id !== user.id).map(row => row.id);
       }
       const { data: incoming, error: incomingError } = await supabase.from("transfers")
         .select("id").eq("recipient_id", user.id).eq("status", "awaiting_recipient");
