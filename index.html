@@ -2249,8 +2249,8 @@
       await ensureDonationCardDetails(pendingTransfers.map(transfer => transfer.card_id));
       const donorIds = [...new Set(pendingTransfers.map(t => t.donor_id))];
       const { data: donorRows } = await supabase
-        .from("profiles").select("id, display_name").in("id", donorIds);
-      const names = new Map((donorRows || []).map(p => [p.id, p.display_name || "Membre GO Partage"]));
+        .from("profiles").select("id, display_name, confirmed_donations_count, confirmed_receptions_count").in("id", donorIds);
+      const donorsById = new Map((donorRows || []).map(p => [p.id, p]));
       pendingTransfers.forEach(transfer => {
         const card = cardById.get(transfer.card_id);
         if (!card) return;
@@ -2260,7 +2260,10 @@
         const name = document.createElement("strong");
         name.textContent = (set ? (set.name_fr || set.name) + " · " : "") + "#" + card.card_number + " " + (card.name_fr || card.name);
         const detail = document.createElement("p");
-        detail.textContent = "Don envoyé par " + (names.get(transfer.donor_id) || "Membre GO Partage") + ".";
+        const donor = donorsById.get(transfer.donor_id);
+        detail.textContent = "Don envoyé par " + (donor?.display_name || "Membre GO Partage") +
+          " · 📤 " + (donor?.confirmed_donations_count ?? 0) + " dons · 📥 " +
+          (donor?.confirmed_receptions_count ?? 0) + " réceptions.";
         const info = document.createElement("p");
         info.className = "muted";
         if (transfer.status === "disputed") {
@@ -2343,8 +2346,9 @@
     } else {
       await ensureDonationCardDetails(sentTransfers.map(transfer => transfer.card_id));
       const recipientIds = [...new Set(sentTransfers.map(t => t.recipient_id))];
-      const { data: recipients } = await supabase.from("profiles").select("id,display_name").in("id", recipientIds);
-      const recipientNames = new Map((recipients || []).map(p => [p.id,p.display_name || "Membre GO Partage"]));
+      const { data: recipients } = await supabase.from("profiles")
+        .select("id,display_name,confirmed_donations_count,confirmed_receptions_count").in("id", recipientIds);
+      const recipientsById = new Map((recipients || []).map(p => [p.id,p]));
       sentTransfers.forEach(transfer => {
         const card = cardById.get(transfer.card_id);
         const row = document.createElement("div");
@@ -2353,7 +2357,10 @@
         label.textContent = card ? "#" + card.card_number + " " + (card.name_fr || card.name) : "Carte envoyée";
         const state = document.createElement("p");
         state.className = "muted";
-        state.textContent = "Destinataire : " + (recipientNames.get(transfer.recipient_id) || "Membre") +
+        const recipient = recipientsById.get(transfer.recipient_id);
+        state.textContent = "Destinataire : " + (recipient?.display_name || "Membre") +
+          " · 📤 " + (recipient?.confirmed_donations_count ?? 0) + " dons · 📥 " +
+          (recipient?.confirmed_receptions_count ?? 0) + " réceptions" +
           (transfer.status === "disputed" ? " · Litige : " + (transfer.dispute_reason || "En examen") : " · En attente de confirmation");
         row.append(label,state);
         if (transfer.status === "awaiting_recipient") {
