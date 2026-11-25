@@ -1040,6 +1040,64 @@
     box.appendChild(grid);
   }
 
+  async function renderSupportChat(container, conversation, viewerId, isAdmin, memberName) {
+    if (container._supportChannel) {
+      await supabase.removeChannel(container._supportChannel);
+      container._supportChannel = null;
+    }
+    container.replaceChildren();
+    const heading = document.createElement("strong");
+    heading.textContent = isAdmin ? "Conversation privée avec " + (memberName || "le membre") : "💬 Messages de l’administration";
+    const messagesBox = document.createElement("div");
+    messagesBox.style.cssText = "display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;padding:10px;background:#fffaf2;border-radius:10px;border:1px solid #e8ded2;text-align:left;margin-top:8px";
+    const form = document.createElement("form");
+    form.style.cssText = "display:flex;gap:7px;align-items:stretch;margin-top:10px";
+    const input = document.createElement("textarea");
+    input.maxLength = 2000; input.rows = 2; input.placeholder = "Écris ton message...";
+    input.style.cssText = "flex:1;min-width:0;resize:vertical;padding:10px;border:1px solid #c8a26a;border-radius:8px;font:inherit";
+    const send = document.createElement("button");
+    send.type = "submit"; send.className = "small-button"; send.textContent = "Envoyer"; send.style.margin = "0";
+    const feedback = document.createElement("p"); feedback.className = "muted"; feedback.setAttribute("role","status");
+    form.append(input,send); container.append(heading,messagesBox,form,feedback);
+
+    async function refresh() {
+      const { data: messages, error } = await supabase.from("support_messages")
+        .select("id,sender_id,message,created_at").eq("conversation_id",conversation.id)
+        .order("created_at",{ascending:true});
+      messagesBox.replaceChildren();
+      if (error) { messagesBox.textContent = "Impossible de charger les messages : " + error.message; return; }
+      (messages || []).forEach(message => {
+        const bubble = document.createElement("div");
+        bubble.style.cssText = "align-self:" + (message.sender_id === viewerId ? "flex-end" : "flex-start") +
+          ";max-width:88%;padding:9px 12px;border-radius:12px;background:" +
+          (message.sender_id === viewerId ? "#efe6da" : "#ffffff") + ";border:1px solid #e8ded2;overflow-wrap:anywhere";
+        const author = document.createElement("small"); author.className = "muted";
+        author.textContent = message.sender_id === viewerId ? (isAdmin ? "Administration" : "Toi") : (isAdmin ? (memberName || "Membre") : "Administration");
+        const body = document.createElement("div"); body.textContent = message.message;
+        const date = document.createElement("small"); date.className = "muted";
+        date.textContent = new Date(message.created_at).toLocaleString("fr-FR",{dateStyle:"short",timeStyle:"short"});
+        bubble.append(author,body,date); messagesBox.appendChild(bubble);
+      });
+      messagesBox.scrollTop = messagesBox.scrollHeight;
+    }
+    await refresh();
+    container._supportChannel = supabase.channel("support-chat-" + conversation.id)
+      .on("postgres_changes",{event:"*",schema:"public",table:"support_messages",filter:"conversation_id=eq."+conversation.id},refresh)
+      .subscribe();
+    form.addEventListener("submit",async event => {
+      event.preventDefault();
+      const message = input.value.trim();
+      if (!message || send.disabled) return;
+      send.disabled = true; feedback.textContent = "Envoi...";
+      const { error } = await supabase.from("support_messages").insert({
+        conversation_id:conversation.id,sender_id:viewerId,message
+      });
+      if (error) { feedback.textContent = "Message non envoyé : " + error.message; send.disabled = false; return; }
+      input.value = ""; feedback.textContent = "Message envoyé.";
+      await refresh(); send.disabled = false; input.focus();
+    });
+  }
+
   async function loadAdminPushTestReports() {
     const box = document.getElementById("adminPushTestReports");
     box.textContent = "Chargement des alertes...";
@@ -1056,7 +1114,21 @@
       const title = document.createElement("strong"); title.textContent = "⚠️ " + (names.get(report.user_id) || "Membre");
       const detail = document.createElement("p"); detail.className = "muted";
       detail.textContent = "Test déclaré en échec le " + new Date(report.reported_at).toLocaleString("fr-FR");
-      row.append(title, detail); box.appendChild(row);
+      const contact = document.createElement("button"); contact.type = "button"; contact.className = "small-button";
+      contact.textContent = "Contacter le membre";
+      const chat = document.createElement("div"); chat.style.marginTop = "10px";
+      contact.addEventListener("click", async () => {
+        contact.disabled = true; contact.textContent = "Ouverture...";
+        const { data: conversation, error: conversationError } = await supabase.from("support_conversations")
+          .upsert({member_id:report.user_id},{onConflict:"member_id"}).select("id,member_id").single();
+        if (conversationError) {
+          chat.textContent = "Impossible d’ouvrir la conversation : " + conversationError.message;
+        } else {
+          await renderSupportChat(chat,conversation,window.goPartageCurrentUserId,true,names.get(report.user_id));
+        }
+        contact.disabled = false; contact.textContent = "Actualiser la conversation";
+      });
+      row.append(title, detail, contact, chat); box.appendChild(row);
     });
   }
 
@@ -2273,10 +2345,24 @@
       return;
     }
     myDiscussionsContent.replaceChildren();
+    const supportSection = document.createElement("div"); supportSection.className = "set";
+    const supportChat = document.createElement("div");
+    const { data: supportConversation, error: supportError } = await supabase.from("support_conversations")
+      .select("id,member_id").eq("member_id",user.id).maybeSingle();
+    if (supportError) {
+      supportChat.textContent = "Impossible de charger la messagerie de l’administration : " + supportError.message;
+    } else if (supportConversation) {
+      await renderSupportChat(supportChat,supportConversation,user.id,false);
+    } else {
+      supportChat.className = "muted";
+      supportChat.textContent = "Aucun message de l’administration pour le moment.";
+    }
+    supportSection.append(supportChat);
+    myDiscussionsContent.appendChild(supportSection);
     if (!transfers || !transfers.length) {
       const empty = document.createElement("p");
       empty.className = "muted";
-      empty.textContent = "Tes discussions apparaîtront ici dès qu’un don que tu as envoyé ou reçu sera confirmé.";
+      empty.textContent = "Tes discussions avec les membres apparaîtront ici dès qu’un don confirmé aura été effectué.";
       myDiscussionsContent.appendChild(empty);
       return;
     }
