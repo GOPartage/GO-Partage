@@ -41,15 +41,17 @@ document.getElementById("generate").addEventListener("click", async () => {
   const status = document.getElementById("status");
   try {
     const pair = await crypto.subtle.generateKey({name:"ECDSA",namedCurve:"P-256"},true,["sign","verify"]);
-    const jwk = await crypto.subtle.exportKey("jwk",pair.privateKey);
-    const publicBytes = new Uint8Array(65);
-    publicBytes[0] = 4;
-    publicBytes.set(Uint8Array.from(atob(jwk.x.replace(/-/g,"+").replace(/_/g,"/")+"==".slice((jwk.x.length+2)%4)),c=>c.charCodeAt(0)),1);
-    publicBytes.set(Uint8Array.from(atob(jwk.y.replace(/-/g,"+").replace(/_/g,"/")+"==".slice((jwk.y.length+2)%4)),c=>c.charCodeAt(0)),33);
-    document.getElementById("publicKey").textContent = toBase64Url(publicBytes);
-    document.getElementById("privateKey").textContent = jwk.d;
+    const publicRaw = new Uint8Array(await crypto.subtle.exportKey("raw", pair.publicKey));
+    const privateJwk = await crypto.subtle.exportKey("jwk", pair.privateKey);
+    const publicKey = toBase64Url(publicRaw);
+    const privateKey = privateJwk.d;
+    if (publicRaw.length !== 65 || publicKey.length !== 87 || !/^[A-Za-z0-9_-]+$/.test(publicKey)) {
+      throw new Error("Format de clé publique inattendu. Réessaie.");
+    }
+    document.getElementById("publicKey").textContent = publicKey;
+    document.getElementById("privateKey").textContent = privateKey;
     document.getElementById("results").hidden = false;
-    status.textContent = "Paire générée localement.";
+    status.textContent = "Paire générée et vérifiée : clé publique de 87 caractères, sans signe égal.";
   } catch (error) {
     status.textContent = "Génération impossible : " + (error.message || error);
   }
