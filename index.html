@@ -404,6 +404,7 @@
       <button class="tile tile-wide notification-tile" id="myDonationsButton">🤝<br>Mes dons<span class="notification-dot" id="myDonationsNotificationDot" hidden aria-label="Nouveautés à consulter"></span></button>
       <button class="tile tile-wide" id="donationBankButton">🏦<br>Banque des dons</button>
       <button class="tile tile-wide" id="myDiscussionsButton">💬<br>Discussion</button>
+      <button class="tile tile-wide" id="quotaTrackingButton">📊<br>Suivi des quotas</button>
       <button class="tile" id="myAccountButton">👤<br>Mon compte</button>
 
       <button class="tile" id="suggestionsButton">💡<br>Suggestions</button>
@@ -442,6 +443,13 @@
     <h2>🏦 Banque des dons</h2>
     <p class="muted">Retrouve les cartes qui te manquent et demande-les gratuitement.</p>
     <div id="bankDonationsContent">Chargement de la Banque des dons...</div>
+  </section>
+
+  <section class="panel" id="quotaTrackingPanel" hidden>
+    <button class="small-button" id="backFromQuotaTrackingButton">← Retour</button>
+    <h2>📊 Suivi des quotas des membres</h2>
+    <p class="muted">Les compteurs affichent uniquement les dons et réceptions confirmés. Pour une nouvelle demande, chaque membre doit avoir au moins N−1 dons confirmés, où N est son nombre de réceptions confirmées.</p>
+    <div id="quotaTrackingContent">Chargement des compteurs...</div>
   </section>
 
   <section class="panel" id="myAccountPanel" hidden>
@@ -902,6 +910,7 @@
       myDiscussionsPanel.hidden = true;
       bankDonationsPanel.hidden = true;
       myAccountPanel.hidden = true;
+      document.getElementById("quotaTrackingPanel").hidden = true;
       suggestionsPanel.hidden = true;
       adminPanel.hidden = true;
       document.getElementById("adminButton").hidden = true;
@@ -987,6 +996,46 @@
     bankDonationsPanel.hidden = true;
     dashboard.hidden = false;
   });
+
+  document.getElementById("quotaTrackingButton").addEventListener("click", async () => {
+    dashboard.hidden = true;
+    document.getElementById("quotaTrackingPanel").hidden = false;
+    await loadQuotaTracking();
+  });
+  document.getElementById("backFromQuotaTrackingButton").addEventListener("click", () => {
+    document.getElementById("quotaTrackingPanel").hidden = true;
+    dashboard.hidden = false;
+  });
+
+  async function loadQuotaTracking() {
+    const box = document.getElementById("quotaTrackingContent");
+    box.textContent = "Chargement des compteurs...";
+    const { data: members, error } = await supabase.from("profiles")
+      .select("id,display_name,confirmed_donations_count,confirmed_receptions_count")
+      .eq("status","active");
+    if (error) { box.textContent = "Impossible de charger les quotas : " + error.message; return; }
+    box.replaceChildren();
+    if (!members || !members.length) { box.textContent = "Aucun membre actif pour le moment."; return; }
+    members.sort((a,b) => (Number(b.confirmed_donations_count)||0) - (Number(a.confirmed_donations_count)||0) || (Number(b.confirmed_receptions_count)||0) - (Number(a.confirmed_receptions_count)||0) || String(a.display_name||"").localeCompare(String(b.display_name||""),"fr"));
+    members.forEach(member => {
+      const donations = Number(member.confirmed_donations_count)||0;
+      const receptions = Number(member.confirmed_receptions_count)||0;
+      const required = Math.max(receptions - 1, 0);
+      const missing = Math.max(required - donations, 0);
+      const row = document.createElement("div"); row.className = "set";
+      const name = document.createElement("strong"); name.textContent = member.display_name || "Membre GO Partage";
+      const counts = document.createElement("p"); counts.className = "muted";
+      counts.textContent = "📤 " + donations + " dons confirmés · 📥 " + receptions + " réceptions confirmées";
+      const quota = document.createElement("p"); quota.className = "muted";
+      quota.textContent = receptions === 0
+        ? "🎯 Première demande possible (aucune réception confirmée)."
+        : "Quota N−1 : " + required + " don(s) requis · " + (missing === 0 ? "Quota atteint" : missing + " don(s) confirmé(s) encore nécessaire(s)");
+      row.append(name,counts,quota); box.appendChild(row);
+    });
+    const note = document.createElement("p"); note.className = "muted";
+    note.textContent = "Un don est comptabilisé uniquement après confirmation de réception par le bénéficiaire. Les demandes et transferts en attente ne comptent pas.";
+    box.appendChild(note);
+  }
 
   document.getElementById("myAccountButton").addEventListener("click", async () => {
     dashboard.hidden = true;
