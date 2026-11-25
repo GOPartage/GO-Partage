@@ -543,6 +543,8 @@
 }</pre>
       </details>
     </div>
+    <h3>💬 Messagerie privée des membres</h3>
+    <div id="adminSupportInbox" class="set">Chargement des conversations...</div>
     <h3>🔔 Alertes : notifications non reçues</h3>
     <div id="adminPushTestReports" class="set">Chargement des alertes...</div>
     <h3>Gestion des membres</h3>
@@ -1110,6 +1112,37 @@
     });
   }
 
+  async function loadAdminSupportInbox() {
+    const box = document.getElementById("adminSupportInbox");
+    if (!box) return;
+    box.textContent = "Chargement des conversations...";
+    const { data: conversations, error } = await supabase.from("support_conversations")
+      .select("id,member_id,created_at").order("created_at",{ascending:false}).limit(100);
+    if (error) { box.textContent = "Impossible de charger les conversations : " + error.message; return; }
+    box.replaceChildren();
+    if (!conversations?.length) { box.textContent = "Aucune conversation privée pour le moment."; return; }
+    const ids = [...new Set(conversations.map(c => c.member_id))];
+    const [{data:profiles},{data:messages}] = await Promise.all([
+      supabase.from("profiles").select("id,display_name").in("id",ids),
+      supabase.from("support_messages").select("conversation_id,created_at,message").in("conversation_id",conversations.map(c=>c.id)).order("created_at",{ascending:false})
+    ]);
+    const names = new Map((profiles||[]).map(p=>[p.id,p.display_name||"Membre"]));
+    const latest = new Map();
+    for (const message of messages||[]) if (!latest.has(message.conversation_id)) latest.set(message.conversation_id,message);
+    conversations.sort((a,b)=>new Date(latest.get(b.id)?.created_at||b.created_at)-new Date(latest.get(a.id)?.created_at||a.created_at));
+    conversations.forEach(conversation=>{
+      const row=document.createElement("div"); row.style.cssText="padding:8px 0;border-bottom:1px solid #e8ded2";
+      const button=document.createElement("button"); button.type="button"; button.className="small-button";
+      button.textContent="Ouvrir la conversation avec "+(names.get(conversation.member_id)||"Membre");
+      const preview=document.createElement("p"); preview.className="muted";
+      const last=latest.get(conversation.id);
+      preview.textContent=last ? "Dernier message : "+last.message.slice(0,100)+" · "+new Date(last.created_at).toLocaleString("fr-FR") : "Conversation créée, aucun message.";
+      const chat=document.createElement("div"); chat.style.marginTop="8px";
+      button.addEventListener("click",()=>renderSupportChat(chat,conversation,window.goPartageCurrentUserId,true,names.get(conversation.member_id)));
+      row.append(button,preview,chat); box.appendChild(row);
+    });
+  }
+
   async function loadAdminPushTestReports() {
     const box = document.getElementById("adminPushTestReports");
     box.textContent = "Chargement des alertes...";
@@ -1239,7 +1272,7 @@
       return;
     }
     window.goPartageCurrentUserId = user.id;
-    await Promise.all([loadAdminStats(),loadAdminMembers(),loadAdminDonationDisputes(),loadAdminPushTestReports()]);
+    await Promise.all([loadAdminStats(),loadAdminMembers(),loadAdminDonationDisputes(),loadAdminPushTestReports(),loadAdminSupportInbox()]);
     const { data: albums, error: albumsError } = await supabase.from("albums")
       .select("id,name,season,is_active").order("created_at", { ascending: false });
     if (albumsError) {
@@ -2956,7 +2989,8 @@
     await loadAdminAccess(session.user.id);
     await refreshDonationNotifications(false);
     const openTarget = new URLSearchParams(window.location.search).get("open");
-    if (openTarget === "mes-dons") document.getElementById("myDonationsButton").click();
+    if (openTarget === "administration" && !document.getElementById("adminButton").hidden) document.getElementById("adminButton").click();
+    else if (openTarget === "mes-dons") document.getElementById("myDonationsButton").click();
     else if (openTarget === "discussion") document.getElementById("myDiscussionsButton").click();
     else if (openTarget === "banque-dons") document.getElementById("donationBankButton").click();
   }
