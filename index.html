@@ -957,10 +957,10 @@
         alert("Bienvenue sur GO Partage !\n\nGO Partage est une communauté d’entraide entre joueurs de Monopoly GO. Tu peux proposer tes cartes en double et demander gratuitement celles qui te manquent.\n\nINSTALLER SUR TON ÉCRAN D’ACCUEIL (APPLE)\nSur iPhone ou iPad, ouvre https://gopartage.pages.dev dans Safari, appuie sur Partager (carré avec flèche vers le haut), puis sur « Sur l’écran d’accueil » et enfin « Ajouter ». Tu pourras ouvrir GO Partage avec son icône, comme une application. Toutes les étapes sont dans le bouton Aide.\n\nQUOTA DE DONS\nTa première demande est possible sans avoir encore donné. Après ta première réception confirmée, tu dois avoir au minimum un don confirmé de moins que ton nombre de réceptions : 1 réception = 0 don requis ; 2 réceptions = 1 don ; 3 réceptions = 2 dons ; 10 réceptions = 9 dons. Un don compte uniquement lorsque le bénéficiaire confirme l’avoir reçu.\n\nCONSEIL IMPORTANT\nPrends une capture d’écran au moment où tu envoies chaque carte et conserve-la. Elle pourra servir de preuve en cas de désaccord ou de litige.\n\nMerci de faire vivre GO Partage !");
       }
 
-      const scannerNoticeKey = "goPartageScannerNotice:v1:" + session.user.id;
+      const scannerNoticeKey = "goPartageScannerNotice:v2:" + session.user.id;
       if (!localStorage.getItem(scannerNoticeKey)) {
         localStorage.setItem(scannerNoticeKey, "1");
-        alert("Information importante – Scanner des albums\\n\\nLe scanner des captures d’écran des sets ne fonctionne pas correctement pour le moment. Nous sommes désolés pour la gêne occasionnée. Nous travaillons à sa remise en fonctionnement au plus vite.\\n\\nEn attendant, tu peux continuer à utiliser GO Partage normalement et renseigner tes cartes manuellement dans « Mes cartes ».\\n\\nMerci pour ta compréhension et ta patience !");
+        alert("📢 INFO – SCANNER ET TRADUCTIONS\\n\\n📷 Le scanner des captures d’écran ne fonctionne pas encore correctement. Désolés pour la gêne !\\n\\n✅ Toutes les cartes sont bien placées dans les bons sets.\\n\\n🌍 En revanche, certaines traductions sont approximatives à partir de la page 13. Elles seront corrigées dès demain.\\n\\nMerci pour votre patience !");
       }
 
     } else {
