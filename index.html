@@ -274,6 +274,23 @@
 
     }
 
+    .translation {
+      display:block;
+      margin-top:3px;
+      color:#78695d;
+      font-size:11px;
+      font-weight:normal;
+      line-height:1.25;
+    }
+
+    .set-translation {
+      display:block;
+      margin-top:3px;
+      color:#78695d;
+      font-size:13px;
+      font-weight:normal;
+    }
+
     .gold {
 
       color: #b87908;
@@ -3062,14 +3079,27 @@
 
       {
         const section = document.createElement("div"); section.className = "set";
-        const heading = document.createElement("h3"); heading.textContent = set.sort_order + ". " + (set.name_fr || set.name);
+        const heading = document.createElement("h3");
+        heading.textContent = set.sort_order + ". " + set.name;
+        if (set.name_fr) {
+          const translatedSet = document.createElement("span");
+          translatedSet.className = "set-translation";
+          translatedSet.textContent = "(" + set.name_fr + ")";
+          heading.appendChild(translatedSet);
+        }
         section.appendChild(heading);
         const container = document.createElement("div"); container.className = "cards";
         setCards.forEach(card => {
           const q = quantities.get(card.id) || 0;
           const item = document.createElement("div"); item.className = "card-item" + (q >= 1 ? " owned-card" : "");
           const number = document.createElement("span"); number.className = "card-number"; number.textContent = "#" + card.card_number; item.appendChild(number);
-          const name = document.createElement("span"); name.textContent = card.name_fr || card.name; item.appendChild(name);
+          const name = document.createElement("span"); name.textContent = card.name; item.appendChild(name);
+          if (card.name_fr) {
+            const translatedName = document.createElement("span");
+            translatedName.className = "translation";
+            translatedName.textContent = "(" + card.name_fr + ")";
+            item.appendChild(translatedName);
+          }
           if (card.is_gold) { const gold = document.createElement("span"); gold.className = "gold"; gold.textContent = "⭐ Dorée"; item.appendChild(gold); }
           const controls = document.createElement("div"); controls.className = "quantity-controls";
           const minus = document.createElement("button"); minus.textContent = "−"; minus.className = "small-button" + (q >= 1 ? " has-duplicates" : ""); minus.disabled = q === 0;
