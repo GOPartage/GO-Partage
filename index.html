@@ -1562,12 +1562,17 @@
     if (!user) { feedback.textContent = "Reconnecte-toi pour enregistrer ton pseudo."; return; }
     const button = document.getElementById("saveProfileButton");
     button.disabled = true;
-    const { error } = await supabase.from("profiles").update({
-      display_name: displayName,
-      monopoly_go_link: inviteLink
-    }).eq("id", user.id);
+    // Un champ de lien laissé vide ne doit jamais effacer le lien déjà enregistré.
+    // Le lien ne change que si un nouveau lien valide est saisi.
+    const profileUpdates = { display_name: displayName };
+    if (rawInviteLink) profileUpdates.monopoly_go_link = inviteLink;
+    const { error } = await supabase.from("profiles").update(profileUpdates).eq("id", user.id);
     button.disabled = false;
-    feedback.textContent = error ? "Enregistrement impossible : " + error.message : "Ton pseudo et ton lien Monopoly GO ont bien été enregistrés.";
+    feedback.textContent = error
+      ? "Enregistrement impossible : " + error.message
+      : (rawInviteLink
+          ? "Ton pseudo et ton lien Monopoly GO ont bien été enregistrés."
+          : "Ton pseudo a été enregistré. Ton lien Monopoly GO déjà enregistré a été conservé.");
   });
 
   async function loadMySuggestions() {
