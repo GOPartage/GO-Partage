@@ -560,7 +560,6 @@
   const adminPanel = document.getElementById("adminPanel");
 
   const status = document.getElementById("status");
-  const VAPID_PUBLIC_KEY = "8HRhBFhBNJhlGNXkEo7ajaj0XgW7hivIF-3rNCx_FUIQRJe_dtAyUVj91_2UUdOfY-FPhKdEIuE9_l-8KNwHL0";
 
   async function dispatchPush(type, id) {
     if (!id) return;
@@ -620,12 +619,14 @@
       if (isIOS && !installed) throw new Error("Sur iPhone/iPad, ajoute GO Partage à l’écran d’accueil puis ouvre l’application depuis son icône.");
       const permission = await Notification.requestPermission();
       if (permission !== "granted") throw new Error("Autorisation refusée. Tu peux l’autoriser dans les réglages du navigateur.");
+      const { data: keyData, error: keyError } = await supabase.functions.invoke("push-dispatch", { body: { type: "public_key" } });
+      if (keyError || !keyData || !keyData.publicKey) throw new Error("Les clés de notifications ne sont pas encore configurées sur le serveur.");
       const registration = await navigator.serviceWorker.ready;
       let subscription = await registration.pushManager.getSubscription();
       if (!subscription) {
         subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+          applicationServerKey: urlBase64ToUint8Array(keyData.publicKey)
         });
       }
       const { data: { user }, error: userError } = await supabase.auth.getUser();
