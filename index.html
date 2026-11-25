@@ -504,7 +504,42 @@
     <button class="small-button" id="backFromAdminButton">← Retour</button>
     <h2>🛠️ Administration GO Partage</h2>
     <p class="muted">Espace réservé à l’équipe d’administration.</p>
+    <div id="adminStats" class="set">Chargement des statistiques...</div>
+    <h3>Gestion des albums</h3>
     <div id="adminAlbumOverview" class="set">Chargement des albums...</div>
+    <div class="set" id="adminAlbumImport">
+      <h3>📁 Importer un nouvel album</h3>
+      <p class="muted">Importe un fichier JSON : nom, saison, collections et 9 cartes par collection. L’album sera ajouté sans remplacer l’album actif. Tu pourras l’activer lorsqu’il sera complet (23 collections / 207 cartes).</p>
+      <input id="adminAlbumFile" type="file" accept=".json,application/json">
+      <p id="adminAlbumFilePreview" class="muted">Aucun fichier sélectionné.</p>
+      <label style="display:flex;align-items:center;gap:8px;margin:10px 0"><input id="adminAlbumActivateOnImport" type="checkbox"> Activer immédiatement si l’album est complet</label>
+      <button id="adminAlbumImportButton" type="button" disabled>Importer l’album</button>
+      <p id="adminAlbumImportFeedback" class="muted" role="status"></p>
+      <details><summary>Voir le format attendu du fichier</summary>
+        <pre style="white-space:pre-wrap;text-align:left;font-size:12px">{
+  "name": "Nom de l’album",
+  "season": "Saison",
+  "sets": [
+    {
+      "name": "Nom de la collection",
+      "name_fr": "Nom français (facultatif)",
+      "cards": [
+        {
+          "card_number": 1,
+          "name": "Nom de la carte",
+          "name_fr": "Nom français (facultatif)",
+          "rarity": "4 étoiles",
+          "is_gold": false,
+          "is_tradable_now": true
+        }
+      ]
+    }
+  ]
+}</pre>
+      </details>
+    </div>
+    <h3>Gestion des membres</h3>
+    <div id="adminMembersList" class="set">Chargement des membres...</div>
     <h3>Litiges sur les dons</h3>
     <div id="adminDonationDisputes">Chargement des litiges...</div>
     <h3>Suggestions des membres</h3>
@@ -905,6 +940,107 @@
     }
   }
 
+  async function loadAdminStats() {
+    const box = document.getElementById("adminStats");
+    const { data, error } = await supabase.rpc("admin_dashboard_stats");
+    if (error || !data || !data.length) { box.textContent = "Statistiques indisponibles : " + (error?.message || "aucune donnée"); return; }
+    const s = data[0];
+    box.replaceChildren();
+    const title = document.createElement("h3"); title.textContent = "Vue d’ensemble"; box.appendChild(title);
+    const values = [
+      ["Membres",s.total_members],["Actifs",s.active_members],["Suspendus",s.suspended_members],
+      ["Dons confirmés",s.total_confirmed_donations],["Dons à confirmer",s.pending_transfers],
+      ["Litiges",s.disputed_transfers],["Demandes actives",s.active_requests],
+      ["Dons proposés",s.active_offers],["Suggestions en attente",s.pending_suggestions]
+    ];
+    const grid = document.createElement("div"); grid.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:8px";
+    values.forEach(([label,value]) => { const tile=document.createElement("div"); tile.style.cssText="background:#fffaf2;border-radius:8px;padding:10px"; const strong=document.createElement("strong"); strong.textContent=String(value); const caption=document.createElement("div"); caption.className="muted"; caption.textContent=label; tile.append(strong,caption); grid.appendChild(tile); });
+    box.appendChild(grid);
+  }
+
+  async function loadAdminMembers() {
+    const box = document.getElementById("adminMembersList");
+    box.textContent = "Chargement des membres...";
+    const { data: members, error } = await supabase.rpc("admin_members_overview");
+    if (error) { box.textContent = "Impossible de charger les membres : " + error.message; return; }
+    box.replaceChildren();
+    if (!members?.length) { box.textContent = "Aucun membre."; return; }
+    members.forEach(member => {
+      const row = document.createElement("div"); row.className = "set";
+      const title = document.createElement("strong"); title.textContent = member.display_name || "Joueur";
+      const details = document.createElement("p"); details.className = "muted";
+      details.textContent = (member.account_status === "active" ? "🟢 Actif" : "⛔ Suspendu") +
+        " · Inscrit le " + new Date(member.joined_at).toLocaleDateString("fr-FR") +
+        " · " + member.confirmed_donations + " don(s) confirmé(s) · " +
+        member.confirmed_receptions + " réception(s) · " + member.open_requests +
+        " demande(s) ouverte(s) · " + member.active_offers + " don(s) proposé(s)";
+      row.append(title,details);
+      if (member.member_id !== (window.goPartageCurrentUserId || "")) {
+        const action = document.createElement("button"); action.className="small-button";
+        action.textContent = member.account_status === "active" ? "Suspendre le compte" : "Réactiver le compte";
+        action.addEventListener("click", async () => {
+          const next = member.account_status === "active" ? "suspended" : "active";
+          if (!confirm((next === "suspended" ? "Suspendre" : "Réactiver") + " le compte de " + (member.display_name || "ce membre") + " ?")) return;
+          action.disabled = true;
+          const { error: updateError } = await supabase.rpc("admin_set_member_status",{p_member_id:member.member_id,p_status:next});
+          if (updateError) { alert("Modification impossible : " + updateError.message); action.disabled=false; return; }
+          await loadAdminPanel();
+        });
+        row.appendChild(action);
+      }
+      box.appendChild(row);
+    });
+  }
+
+  let adminAlbumImportData = null;
+  const adminAlbumFileInput = document.getElementById("adminAlbumFile");
+  const adminAlbumImportButton = document.getElementById("adminAlbumImportButton");
+  adminAlbumFileInput.addEventListener("change", async () => {
+    adminAlbumImportData = null;
+    adminAlbumImportButton.disabled = true;
+    const preview = document.getElementById("adminAlbumFilePreview");
+    const feedback = document.getElementById("adminAlbumImportFeedback");
+    const file = adminAlbumFileInput.files?.[0];
+    if (!file) { preview.textContent = "Aucun fichier sélectionné."; return; }
+    try {
+      const parsed = JSON.parse(await file.text());
+      if (!parsed || typeof parsed.name !== "string" || typeof parsed.season !== "string" || !Array.isArray(parsed.sets) || !parsed.sets.length) throw new Error("Le fichier doit contenir name, season et sets.");
+      const cardCounts = parsed.sets.map(set => Array.isArray(set.cards) ? set.cards.length : 0);
+      const totalCards = cardCounts.reduce((sum,n)=>sum+n,0);
+      if (parsed.sets.some(set => !set.name || !Array.isArray(set.cards) || set.cards.length !== 9)) throw new Error("Chaque collection doit avoir un nom et exactement 9 cartes.");
+      if (parsed.sets.some(set => set.cards.some(card => !card.name || !Number.isInteger(Number(card.card_number)) || Number(card.card_number)<1))) throw new Error("Chaque carte doit avoir un nom et un numéro entier positif.");
+      adminAlbumImportData = parsed;
+      preview.textContent = "Fichier valide : " + parsed.name + " · " + parsed.season + " · " + parsed.sets.length + " collection(s) · " + totalCards + " carte(s)." +
+        (parsed.sets.length === 23 && totalCards === 207 ? " Album complet : activation possible." : " Album incomplet : il restera inactif.");
+      adminAlbumImportButton.disabled = false;
+      feedback.textContent = "";
+    } catch (error) {
+      preview.textContent = "Fichier invalide : " + error.message;
+      feedback.textContent = "";
+    }
+  });
+  adminAlbumImportButton.addEventListener("click", async () => {
+    if (!adminAlbumImportData) return;
+    adminAlbumImportButton.disabled = true;
+    const feedback = document.getElementById("adminAlbumImportFeedback");
+    feedback.textContent = "Import de l’album en cours...";
+    const { data, error } = await supabase.rpc("admin_import_album", {
+      p_name: adminAlbumImportData.name, p_season: adminAlbumImportData.season,
+      p_sets: adminAlbumImportData.sets,
+      p_activate: document.getElementById("adminAlbumActivateOnImport").checked
+    });
+    if (error) {
+      feedback.textContent = "Import impossible : " + error.message;
+      adminAlbumImportButton.disabled = false;
+      return;
+    }
+    feedback.textContent = "Album importé avec succès. Il est enregistré dans la base GO Partage.";
+    adminAlbumImportData = null; adminAlbumFileInput.value = "";
+    document.getElementById("adminAlbumFilePreview").textContent = "Aucun fichier sélectionné.";
+    document.getElementById("adminAlbumActivateOnImport").checked = false;
+    await loadAdminPanel();
+  });
+
   async function loadAdminPanel() {
     const albumsBox = document.getElementById("adminAlbumOverview");
     const suggestionsBox = document.getElementById("adminSuggestionsList");
@@ -916,7 +1052,8 @@
       suggestionsBox.textContent = "";
       return;
     }
-    await loadAdminDonationDisputes();
+    window.goPartageCurrentUserId = user.id;
+    await Promise.all([loadAdminStats(),loadAdminMembers(),loadAdminDonationDisputes()]);
     const { data: albums, error: albumsError } = await supabase.from("albums")
       .select("id,name,season,is_active").order("created_at", { ascending: false });
     if (albumsError) {
@@ -926,10 +1063,35 @@
       const heading = document.createElement("h3");
       heading.textContent = "Albums enregistrés";
       albumsBox.appendChild(heading);
+      const albumIds = (albums || []).map(album=>album.id);
+      const {data:sets} = albumIds.length ? await supabase.from("card_sets").select("id,album_id").in("album_id",albumIds) : {data:[]};
+      const setIds = (sets || []).map(set=>set.id);
+      const {data:cards} = setIds.length ? await supabase.from("cards").select("id,set_id,is_approved").in("set_id",setIds) : {data:[]};
       for (const album of albums || []) {
-        const row = document.createElement("p");
-        row.textContent = (album.is_active ? "🟢 Actif · " : "⚪ Inactif · ") +
-          album.name + (album.season ? " (" + album.season + ")" : "");
+        const albumSets = (sets || []).filter(set=>set.album_id===album.id);
+        const albumSetIds = new Set(albumSets.map(set=>set.id));
+        const approvedCards = (cards || []).filter(card=>albumSetIds.has(card.set_id) && card.is_approved);
+        const row = document.createElement("div"); row.className="set";
+        const label = document.createElement("p");
+        label.textContent = (album.is_active ? "🟢 Actif · " : "⚪ Inactif · ") +
+          album.name + (album.season ? " (" + album.season + ")" : "") +
+          " — " + albumSets.length + " collection(s), " + approvedCards.length + " carte(s) approuvée(s).";
+        row.appendChild(label);
+        if (!album.is_active) {
+          const activate = document.createElement("button"); activate.className="small-button";
+          activate.textContent = "Activer cet album";
+          activate.disabled = albumSets.length !== 23 || approvedCards.length !== 207 ||
+            albumSets.some(set=>(cards || []).filter(card=>card.set_id===set.id && card.is_approved).length!==9);
+          activate.title = activate.disabled ? "Activation disponible lorsque les 23 collections et 207 cartes (9 par collection) sont validées." : "";
+          activate.addEventListener("click",async()=>{
+            if (!confirm("Activer " + album.name + " ? L’album actuellement actif sera remplacé pour les demandes et les dons.")) return;
+            activate.disabled=true;
+            const {error}=await supabase.rpc("admin_activate_album",{p_album_id:album.id});
+            if(error){alert("Activation impossible : "+error.message);activate.disabled=false;return;}
+            await loadAdminPanel();
+          });
+          row.appendChild(activate);
+        }
         albumsBox.appendChild(row);
       }
       if (!albums || !albums.length) albumsBox.append("Aucun album enregistré.");
@@ -1260,7 +1422,7 @@
     cards.forEach(card => cardsBySet.set(card.set_id, (cardsBySet.get(card.set_id) || 0) + 1));
     // L'album actif reste utilisable même si le prochain album n'est pas encore importé.
     // La complétude stricte (23 sets / 207 cartes) ne doit pas fermer la banque.
-    const communityBankReady = sets.length > 0 && cards.length > 0;
+    const communityBankReady = sets.length > 0 && sets.every(set => (cardsBySet.get(set.id) || 0) === 9);
     const { data: ownedRows, error: ownedError } = await supabase.from("member_cards").select("card_id, quantity").eq("member_id", user.id);
     if (ownedError) { myDonationsContent.textContent = "Erreur inventaire : " + ownedError.message; return; }
     const { data: offers, error: offersError } = await supabase.from("card_offers").select("id, card_id, quantity, created_at").eq("member_id", user.id).eq("status", "active").order("created_at", { ascending: false });
@@ -1344,7 +1506,7 @@
     if (!communityBankReady) {
       const closedNotice = document.createElement("p");
       closedNotice.className = "muted";
-      closedNotice.textContent = "Les dons seront activés après la mise à jour complète du nouvel album (23 sets et 207 cartes approuvées).";
+      closedNotice.textContent = "La Banque des dons et la publication des offres s’ouvriront lorsque chaque collection de l’album actif contiendra exactement 9 cartes approuvées. L’album actuellement utilisé reste disponible tant qu’il est complet.";
       form.appendChild(closedNotice);
     }
     const publish = document.createElement("button");
