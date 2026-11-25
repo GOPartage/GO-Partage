@@ -459,7 +459,7 @@
     </div>
     <div class="set" style="max-width:520px;margin:14px auto;text-align:left">
       <h3>🔔 Notifications sur ton téléphone</h3>
-      <p class="muted">Reçois une alerte même lorsque GO Partage est fermé : demandes sur tes cartes, nouveaux dons à confirmer et nouveaux messages.</p>
+      <p class="muted">Reçois une alerte même lorsque GO Partage est fermé : demandes sur tes cartes, cartes disponibles pour terminer un set ou ton album, dons à confirmer et nouveaux messages.</p>
       <p class="muted" id="pushCompatibility">Vérification de la compatibilité...</p>
       <button id="enablePushButton" type="button">Activer les notifications</button>
       <button id="disablePushButton" type="button" class="small-button" hidden>Désactiver sur cet appareil</button>
@@ -1549,9 +1549,10 @@
       if (quantity > free) { feedback.textContent = "Tu n’as que " + free + " exemplaire(s) disponible(s)."; return; }
       publish.disabled = true;
       feedback.textContent = "Publication du don...";
-      const { error } = await supabase.rpc("publish_card_offer", { p_card_id: cardId, p_quantity: quantity });
+      const { data: offerId, error } = await supabase.rpc("publish_card_offer", { p_card_id: cardId, p_quantity: quantity });
       if (error) { feedback.textContent = "Impossible de publier : " + error.message; publish.disabled = false; return; }
-      feedback.textContent = "Ton don est publié !";
+      feedback.textContent = "Ton don est publié ! Recherche des membres qui peuvent terminer un set ou leur album...";
+      if (offerId) dispatchPush("card_offer_created", offerId);
       await loadMyDonations();
     });
 
@@ -2773,6 +2774,7 @@
     const openTarget = new URLSearchParams(window.location.search).get("open");
     if (openTarget === "mes-dons") document.getElementById("myDonationsButton").click();
     else if (openTarget === "discussion") document.getElementById("myDiscussionsButton").click();
+    else if (openTarget === "banque-dons") document.getElementById("donationBankButton").click();
   }
   if (facebookButton) facebookButton.dataset.goPartageModuleReady = "1";
   window.addEventListener("focus", () => refreshDonationNotifications(false));
