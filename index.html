@@ -2810,36 +2810,61 @@
                   }
                   importMatches.add(matchedCard.id);
                   importChecked.add(matchedCard.id);
-                  const countCanvas = document.createElement("canvas");
-                  // Coordonnées exactes des badges +N observés sur la capture 942 × 2048.
-                  // Chaque badge est en bas à gauche de sa vignette. Les anciennes
-                  // coordonnées des colonnes 2 et 3 étaient trop à gauche.
+                  // Lecture renforcée du badge +N avec plusieurs traitements d'image.
                   const countXs = [0.075, 0.327, 0.580];
                   const countYs = [0.365, 0.520, 0.675];
                   const cx = Math.round(bitmap.width * countXs[col]);
                   const cy = Math.round(bitmap.height * countYs[row]);
                   const cw = Math.round(bitmap.width * 0.12);
                   const ch = Math.round(bitmap.height * 0.040);
-                  countCanvas.width = cw * 8; countCanvas.height = ch * 8;
-                  const countCtx = countCanvas.getContext("2d", {willReadFrequently:true});
-                  countCtx.imageSmoothingEnabled = true;
-                  countCtx.imageSmoothingQuality = "high";
-                  countCtx.drawImage(source,cx,cy,cw,ch,0,0,countCanvas.width,countCanvas.height);
-                  const countPixels = countCtx.getImageData(0,0,countCanvas.width,countCanvas.height);
-                  const countData = countPixels.data;
-                  for (let p=0;p<countData.length;p+=4) {
-                    const gray=countData[p]*0.299+countData[p+1]*0.587+countData[p+2]*0.114;
-                    const value=gray<175?0:255;
-                    countData[p]=countData[p+1]=countData[p+2]=value;
+                  const cropCanvas = document.createElement("canvas");
+                  cropCanvas.width = cw * 10; cropCanvas.height = ch * 10;
+                  const cropCtx = cropCanvas.getContext("2d", {willReadFrequently:true});
+                  cropCtx.imageSmoothingEnabled = true;
+                  cropCtx.imageSmoothingQuality = "high";
+                  cropCtx.drawImage(source,cx,cy,cw,ch,0,0,cropCanvas.width,cropCanvas.height);
+                  const originalPixels = cropCtx.getImageData(0,0,cropCanvas.width,cropCanvas.height);
+                  const variants = [cropCanvas];
+                  for (const threshold of [145, 185]) {
+                    const variant = document.createElement("canvas");
+                    variant.width = cropCanvas.width; variant.height = cropCanvas.height;
+                    const vctx = variant.getContext("2d", {willReadFrequently:true});
+                    const pixels = new ImageData(new Uint8ClampedArray(originalPixels.data), originalPixels.width, originalPixels.height);
+                    for (let p=0;p<pixels.data.length;p+=4) {
+                      const gray=pixels.data[p]*0.299+pixels.data[p+1]*0.587+pixels.data[p+2]*0.114;
+                      const value=gray<threshold?0:255;
+                      pixels.data[p]=pixels.data[p+1]=pixels.data[p+2]=value;
+                    }
+                    vctx.putImageData(pixels,0,0);
+                    variants.push(variant);
                   }
-                  countCtx.putImageData(countPixels,0,0);
-                  await worker.setParameters({ tessedit_pageseg_mode: "7", tessedit_char_whitelist: "0123456789", classify_bln_numeric_mode: "1" });
-                  const countResult = await worker.recognize(countCanvas);
-                  const countText = countResult.data.text || "";
-                  const countMatch = countText.match(/(\d{1,2})/);
-                  const doubles = countMatch ? Math.min(99, Number(countMatch[1])) : 0;
-                  importQuantities.set(matchedCard.id, Math.max(importQuantities.get(matchedCard.id) || 0, doubles));
-                  textParts.push("[DOUBLES CARTE " + zone + "] " + countText);
+                  let bestCount = null;
+                  let bestConfidence = -1;
+                  const countReadings = [];
+                  for (const variant of variants) {
+                    for (const pageMode of ["7","8"]) {
+                      await worker.setParameters({
+                        tessedit_pageseg_mode: pageMode,
+                        tessedit_char_whitelist: "+0123456789",
+                        classify_bln_numeric_mode: "1",
+                        load_system_dawg: "0",
+                        load_freq_dawg: "0"
+                      });
+                      const result = await worker.recognize(variant);
+                      const raw = (result.data.text || "").trim();
+                      const match = raw.match(/\\+?\\s*(\\d{1,2})/);
+                      const confidence = Number(result.data.confidence) || 0;
+                      countReadings.push(raw + " (" + Math.round(confidence) + "%)");
+                      if (match && confidence > bestConfidence) {
+                        bestCount = Math.min(99, Number(match[1]));
+                        bestConfidence = confidence;
+                      }
+                    }
+                  }
+                  // Une lecture absente ne devient jamais un zéro inventé.
+                  if (bestCount !== null && bestConfidence >= 20) importQuantities.set(matchedCard.id, bestCount);
+                  textParts.push("[DOUBLES CARTE " + zone + "] " +
+                    (bestCount === null ? "À vérifier — " : "+" + bestCount + " — ") + countReadings.join(" | "));
                 }
               }
               await worker.setParameters({ tessedit_pageseg_mode: "6", preserve_interword_spaces: "1" });
@@ -2899,7 +2924,7 @@
             countLabel.textContent = "Doubles : ";
             const countInput = document.createElement("input");
             countInput.type = "number"; countInput.min = "0"; countInput.max = "99";
-            countInput.step = "1"; countInput.value = String(importQuantities.get(card.id) || 0);
+            countInput.step = "1";\n            countInput.value = importQuantities.has(card.id) ? String(importQuantities.get(card.id)) : "";\n            countInput.placeholder = "À vérifier";
             countInput.style.width = "64px";
             countInput.addEventListener("change", () => {
               const value = Math.max(0, Math.min(99, Number(countInput.value) || 0));
@@ -2917,7 +2942,7 @@
         saveImport.addEventListener("click", async () => {
           const selected = cards.filter(card => importChecked.has(card.id));
           if (!selected.length) { alert("Aucune carte cochée à enregistrer."); return; }
-          saveImport.disabled = true; saveImport.textContent = "Enregistrement...";
+          const missingQuantities = selected.filter(card => !importQuantities.has(card.id));\n          if (missingQuantities.length) {\n            alert("Quantité non lue pour " + missingQuantities.length + " carte(s). Vérifie et saisis leur nombre de doubles avant l’enregistrement.");\n            return;\n          }\n          saveImport.disabled = true; saveImport.textContent = "Enregistrement...";
           for (const card of selected) {
             const totalQuantity = 1 + (importQuantities.get(card.id) || 0);
             const { error } = await supabase.from("member_cards").upsert(
