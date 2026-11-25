@@ -1040,6 +1040,17 @@
     box.appendChild(grid);
   }
 
+  function getDonorBadge(count) {
+    const total = Number(count) || 0;
+    if (total >= 500) return "🏆 Légende GO Partage";
+    if (total >= 250) return "👑 Donateur d’exception";
+    if (total >= 100) return "💎 Donateur expert";
+    if (total >= 50) return "🥇 Donateur certifié";
+    if (total >= 25) return "🥈 Donateur généreux";
+    if (total >= 10) return "🥉 Donateur engagé";
+    return "";
+  }
+
   async function renderSupportChat(container, conversation, viewerId, isAdmin, memberName) {
     if (container._supportChannel) {
       await supabase.removeChannel(container._supportChannel);
@@ -1089,11 +1100,12 @@
       const message = input.value.trim();
       if (!message || send.disabled) return;
       send.disabled = true; feedback.textContent = "Envoi...";
-      const { error } = await supabase.from("support_messages").insert({
+      const { data: sentMessage, error } = await supabase.from("support_messages").insert({
         conversation_id:conversation.id,sender_id:viewerId,message
-      });
+      }).select("id").single();
       if (error) { feedback.textContent = "Message non envoyé : " + error.message; send.disabled = false; return; }
       input.value = ""; feedback.textContent = "Message envoyé.";
+      if (sentMessage?.id) dispatchPush("support_message",sentMessage.id);
       await refresh(); send.disabled = false; input.focus();
     });
   }
@@ -1967,7 +1979,9 @@
               name.textContent = (set ? (set.name_fr || set.name) + " · " : "") + "#" + card.card_number + " " + (card.name_fr || card.name);
               const detail = document.createElement("p");
               const donorProfile = donorProfilesById.get(offer.member_id);
+              const donorBadge = getDonorBadge(donorProfile?.confirmed_donations_count);
               detail.textContent = "Don proposé par " + (donorNames.get(offer.member_id) || "Membre GO Partage") +
+                (donorBadge ? " · " + donorBadge : "") +
                 " · 📤 " + (donorProfile ? donorProfile.confirmed_donations_count : 0) +
                 " dons confirmés · 📥 " + (donorProfile ? donorProfile.confirmed_receptions_count : 0) +
                 " réceptions confirmées · " + offer.quantity + " exemplaire(s) disponible(s)";
@@ -2061,7 +2075,9 @@
           name.textContent = (set ? (set.name_fr || set.name) + " · " : "") + "#" + card.card_number + " " + (card.name_fr || card.name);
           const detail = document.createElement("p");
           const requesterProfile = (requesterProfiles || []).find(p => p.id === request.member_id);
+          const requesterBadge = getDonorBadge(requesterProfile?.confirmed_donations_count);
           detail.textContent = (requesterNames.get(request.member_id) || "Membre GO Partage") +
+            (requesterBadge ? " · " + requesterBadge : "") +
             " souhaite recevoir cette carte gratuitement. · 📤 " +
             (requesterProfile ? requesterProfile.confirmed_donations_count : 0) +
             " dons confirmés · 📥 " +
