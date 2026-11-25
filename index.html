@@ -464,6 +464,11 @@
       <button id="enablePushButton" type="button">Activer les notifications</button>
       <button id="disablePushButton" type="button" class="small-button" hidden>Désactiver sur cet appareil</button>
       <button id="testPushButton" type="button" class="small-button" hidden>Envoyer une notification test</button>
+      <div id="pushTestConfirmation" hidden>
+        <p class="muted">As-tu bien reçu la notification sur ton appareil ?</p>
+        <button id="pushTestSuccessButton" type="button" class="small-button">Oui, test réussi</button>
+        <button id="pushTestFailureButton" type="button" class="small-button">Non, test échoué</button>
+      </div>
       <p id="pushFeedback" class="muted" role="status"></p>
     </div>
   </section>
@@ -538,6 +543,8 @@
 }</pre>
       </details>
     </div>
+    <h3>🔔 Alertes : notifications non reçues</h3>
+    <div id="adminPushTestReports" class="set">Chargement des alertes...</div>
     <h3>Gestion des membres</h3>
     <div id="adminMembersList" class="set">Chargement des membres...</div>
     <h3>Litiges sur les dons</h3>
@@ -652,7 +659,15 @@
     if (subscription && !registeredOnAccount) enable.textContent = "Enregistrer les notifications sur mon compte";
     else enable.textContent = "Activer les notifications";
     disable.hidden = !subscription;
-    test.hidden = !subscription || !registeredOnAccount;
+    let testAlreadyValidated = false;
+    if (subscription && registeredOnAccount) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) testAlreadyValidated = localStorage.getItem("goPartagePushTestOk:" + user.id + ":" + subscription.endpoint) === "1";
+      } catch {}
+    }
+    test.hidden = !subscription || !registeredOnAccount || testAlreadyValidated;
+    if (testAlreadyValidated) document.getElementById("pushTestConfirmation").hidden = true;
     if (subscription && !registeredOnAccount) {
       compatibility.textContent = "Un abonnement existe sur cet appareil, mais il n’est pas enregistré sur ton compte GO Partage. Clique sur « Enregistrer les notifications sur mon compte » pour recevoir les alertes.";
     }
@@ -725,14 +740,57 @@
   document.getElementById("testPushButton").addEventListener("click", async () => {
     const feedback = document.getElementById("pushFeedback");
     const button = document.getElementById("testPushButton");
+    const confirmation = document.getElementById("pushTestConfirmation");
     button.disabled = true;
-    const { data, error } = await supabase.functions.invoke("push-dispatch", { body: { type: "test" } });
-    feedback.textContent = error
-      ? "Test impossible : " + (error.message || error)
-      : data && data.sent > 0
-        ? "Notification envoyée. Vérifie l’écran verrouillé."
-        : "Aucun appareil n’est actuellement enregistré pour ce compte. Désactive puis réactive les notifications sur cet appareil, puis relance le test.";
-    button.disabled = false;
+    feedback.textContent = "Envoi de la notification test...";
+    confirmation.hidden = true;
+    try {
+      const { data, error } = await supabase.functions.invoke("push-dispatch", { body: { type: "test" } });
+      if (error) throw error;
+      if (data && data.sent > 0) {
+        feedback.textContent = "Notification envoyée. Regarde ton téléphone puis indique si tu l’as reçue.";
+        confirmation.hidden = false;
+      } else {
+        feedback.textContent = "Aucune notification n’a pu être envoyée. Vérifie ton abonnement puis réessaie.";
+      }
+    } catch (error) {
+      feedback.textContent = "Test impossible : " + (error.message || error);
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  document.getElementById("pushTestSuccessButton").addEventListener("click", async () => {
+    const feedback = document.getElementById("pushFeedback");
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const subscription = await (await navigator.serviceWorker.ready).pushManager.getSubscription();
+      if (!user || !subscription) throw new Error("Abonnement introuvable sur cet appareil.");
+      localStorage.setItem("goPartagePushTestOk:" + user.id + ":" + subscription.endpoint, "1");
+      document.getElementById("pushTestConfirmation").hidden = true;
+      document.getElementById("testPushButton").hidden = true;
+      feedback.textContent = "✅ Test réussi ! Tes notifications sont activées sur cet appareil.";
+    } catch (error) {
+      feedback.textContent = "Impossible d’enregistrer la validation : " + (error.message || error);
+    }
+  });
+
+  document.getElementById("pushTestFailureButton").addEventListener("click", async () => {
+    const feedback = document.getElementById("pushFeedback");
+    const button = document.getElementById("pushTestFailureButton");
+    button.disabled = true;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Reconnecte-toi pour signaler le problème.");
+      const { error } = await supabase.from("push_test_reports").insert({ user_id: user.id });
+      if (error) throw error;
+      document.getElementById("pushTestConfirmation").hidden = true;
+      feedback.textContent = "⚠️ Échec signalé : l’administration a été prévenue. Tu peux réessayer le test après vérification des réglages de ton appareil.";
+    } catch (error) {
+      feedback.textContent = "Impossible de transmettre le signalement : " + (error.message || error);
+    } finally {
+      button.disabled = false;
+    }
   });
 
   const albumContent = document.getElementById("albumContent");
@@ -979,6 +1037,26 @@
     box.appendChild(grid);
   }
 
+  async function loadAdminPushTestReports() {
+    const box = document.getElementById("adminPushTestReports");
+    box.textContent = "Chargement des alertes...";
+    const { data: reports, error } = await supabase.from("push_test_reports")
+      .select("id,user_id,reported_at").order("reported_at", { ascending: false }).limit(100);
+    if (error) { box.textContent = "Impossible de charger les alertes : " + error.message; return; }
+    box.replaceChildren();
+    if (!reports || !reports.length) { box.textContent = "Aucun échec de notification signalé. 👍"; return; }
+    const ids = [...new Set(reports.map(report => report.user_id))];
+    const { data: profiles } = await supabase.from("profiles").select("id,display_name").in("id", ids);
+    const names = new Map((profiles || []).map(profile => [profile.id, profile.display_name || "Membre"]));
+    reports.forEach(report => {
+      const row = document.createElement("div"); row.className = "set";
+      const title = document.createElement("strong"); title.textContent = "⚠️ " + (names.get(report.user_id) || "Membre");
+      const detail = document.createElement("p"); detail.className = "muted";
+      detail.textContent = "Test déclaré en échec le " + new Date(report.reported_at).toLocaleString("fr-FR");
+      row.append(title, detail); box.appendChild(row);
+    });
+  }
+
   async function loadAdminMembers() {
     const box = document.getElementById("adminMembersList");
     box.textContent = "Chargement des membres...";
@@ -1074,7 +1152,7 @@
       return;
     }
     window.goPartageCurrentUserId = user.id;
-    await Promise.all([loadAdminStats(),loadAdminMembers(),loadAdminDonationDisputes()]);
+    await Promise.all([loadAdminStats(),loadAdminMembers(),loadAdminDonationDisputes(),loadAdminPushTestReports()]);
     const { data: albums, error: albumsError } = await supabase.from("albums")
       .select("id,name,season,is_active").order("created_at", { ascending: false });
     if (albumsError) {
