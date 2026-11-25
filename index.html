@@ -303,7 +303,7 @@
     .quantity-controls { display:flex; align-items:center; justify-content:center; gap:8px; margin-top:9px; }
     .quantity-controls button { margin:0; padding:5px 10px; font-size:16px; }
     .quantity-value { min-width:22px; font-weight:bold; }
-    .owned-card { border-color:#c8a26a; background:#fffaf2; }
+    .owned-card { border:1px solid #c8a26a; background:linear-gradient(115deg, rgba(255,224,132,.72) 0%, rgba(184,222,239,.70) 52%, rgba(241,190,211,.72) 100%); }
     .cards-summary { background:#efe6da; border-radius:10px; padding:12px; margin:12px 0; }
     .filter-buttons { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; }
     .filter-buttons button { margin:0; padding:8px 12px; font-size:13px; }
@@ -2334,7 +2334,7 @@
           if (card.is_gold) { const gold = document.createElement("span"); gold.className = "gold"; gold.textContent = "⭐ Dorée"; item.appendChild(gold); }
           const controls = document.createElement("div"); controls.className = "quantity-controls";
           const minus = document.createElement("button"); minus.textContent = "−"; minus.className = "small-button"; minus.disabled = q === 0;
-          const value = document.createElement("span"); value.className = "quantity-value"; value.textContent = String(q);
+          const value = document.createElement("span"); value.className = "quantity-value"; value.textContent = String(q > 0 ? q - 1 : 0); value.title = "Nombre de doubles (hors exemplaire de base)";
           const plus = document.createElement("button"); plus.textContent = "+"; plus.className = "small-button";
           async function changeQuantity(next) {
             minus.disabled = true; plus.disabled = true;
