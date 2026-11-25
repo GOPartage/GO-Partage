@@ -3286,21 +3286,27 @@
     button.disabled = true;
     if (status) status.textContent = "Connexion à Facebook...";
     try {
-      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-      const client = window.goPartageSupabase || createClient(
-        "https://emcmvflmdxiwzanxggmu.supabase.co",
-        "sb_publishable_DewNBprHDwNNxDm24c4_sQ_nqaFhXT_",
-        {
-          auth: {
-            flowType: "pkce",
-            persistSession: true,
-            autoRefreshToken: true,
-            detectSessionInUrl: false,
-            storageKey: "sb-emcmvflmdxiwzanxggmu-auth-token",
-            storage: window.localStorage
+      // Réutiliser immédiatement le client principal s'il est déjà chargé.
+      // L'import dynamique préalable pouvait empêcher l'ouverture de Facebook sur iOS/PWA.
+      let client = window.goPartageSupabase;
+      if (!client) {
+        const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+        client = createClient(
+          "https://emcmvflmdxiwzanxggmu.supabase.co",
+          "sb_publishable_DewNBprHDwNNxDm24c4_sQ_nqaFhXT_",
+          {
+            auth: {
+              flowType: "pkce",
+              persistSession: true,
+              autoRefreshToken: true,
+              detectSessionInUrl: true,
+              storageKey: "sb-emcmvflmdxiwzanxggmu-auth-token",
+              storage: window.localStorage
+            }
           }
-        }
-      );
+        );
+        window.goPartageSupabase = client;
+      }
       const { error } = await client.auth.signInWithOAuth({
         provider: "facebook",
         options: { redirectTo: window.location.origin + window.location.pathname }
