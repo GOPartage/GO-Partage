@@ -2852,7 +2852,7 @@
                       });
                       const result = await worker.recognize(variant);
                       const raw = (result.data.text || "").trim();
-                      const match = raw.match(/\\+?\\s*(\\d{1,2})/);
+                      const match = raw.match(/\+?\s*(\d{1,2})/);
                       const confidence = Number(result.data.confidence) || 0;
                       countReadings.push(raw + " (" + Math.round(confidence) + "%)");
                       if (match && confidence > bestConfidence) {
@@ -2924,7 +2924,9 @@
             countLabel.textContent = "Doubles : ";
             const countInput = document.createElement("input");
             countInput.type = "number"; countInput.min = "0"; countInput.max = "99";
-            countInput.step = "1";\n            countInput.value = importQuantities.has(card.id) ? String(importQuantities.get(card.id)) : "";\n            countInput.placeholder = "À vérifier";
+            countInput.step = "1";
+            countInput.value = importQuantities.has(card.id) ? String(importQuantities.get(card.id)) : "";
+            countInput.placeholder = "À vérifier";
             countInput.style.width = "64px";
             countInput.addEventListener("change", () => {
               const value = Math.max(0, Math.min(99, Number(countInput.value) || 0));
@@ -2942,7 +2944,12 @@
         saveImport.addEventListener("click", async () => {
           const selected = cards.filter(card => importChecked.has(card.id));
           if (!selected.length) { alert("Aucune carte cochée à enregistrer."); return; }
-          const missingQuantities = selected.filter(card => !importQuantities.has(card.id));\n          if (missingQuantities.length) {\n            alert("Quantité non lue pour " + missingQuantities.length + " carte(s). Vérifie et saisis leur nombre de doubles avant l’enregistrement.");\n            return;\n          }\n          saveImport.disabled = true; saveImport.textContent = "Enregistrement...";
+          const missingQuantities = selected.filter(card => !importQuantities.has(card.id));
+          if (missingQuantities.length) {
+            alert("Quantité non lue pour " + missingQuantities.length + " carte(s). Vérifie et saisis leur nombre de doubles avant l’enregistrement.");
+            return;
+          }
+          saveImport.disabled = true; saveImport.textContent = "Enregistrement...";
           for (const card of selected) {
             const totalQuantity = 1 + (importQuantities.get(card.id) || 0);
             const { error } = await supabase.from("member_cards").upsert(
