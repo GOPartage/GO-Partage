@@ -2186,6 +2186,26 @@
                 askInfo.textContent = "Cette carte n'est pas disponible au don actuellement.";
               }
               ask.addEventListener("click", async () => {
+                // Vérifier le lien d'ami avant de transmettre une demande : sans lui, le donneur ne peut pas envoyer la carte.
+                const { data: requesterProfile, error: requesterProfileError } = await supabase
+                  .from("profiles").select("monopoly_go_link").eq("id", user.id).single();
+                if (requesterProfileError) {
+                  askInfo.textContent = "Impossible de vérifier ton lien Monopoly GO. Réessaie dans un instant.";
+                  return;
+                }
+                let validMonopolyLink = false;
+                try {
+                  const parsedLink = new URL(requesterProfile && requesterProfile.monopoly_go_link ? requesterProfile.monopoly_go_link : "");
+                  validMonopolyLink = parsedLink.protocol === "https:" && ["mply.io", "www.mply.io", "s.scope.ly"].includes(parsedLink.hostname.toLowerCase());
+                } catch {}
+                if (!validMonopolyLink) {
+                  alert("🎲 N’OUBLIE PAS TON LIEN MONOPOLY GO !\\n\\nPour que le membre puisse t’ajouter et t’envoyer la carte, tu dois enregistrer ton lien d’ami dans « Mon compte ».\\n\\nTu vas être redirigé vers ton profil. Ajoute ton lien, enregistre, puis reviens dans la Banque des dons pour faire ta demande.");
+                  bankDonationsPanel.hidden = true;
+                  dashboard.hidden = true;
+                  myAccountPanel.hidden = false;
+                  await loadMyAccount();
+                  return;
+                }
                 ask.disabled = true;
                 ask.textContent = "Envoi de la demande...";
                 const { data: requestId, error } = await supabase.rpc("request_card", { p_card_id: card.id });
