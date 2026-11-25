@@ -1,4 +1,4 @@
-const CACHE_NAME = "go-partage-shell-v26";
+const CACHE_NAME = "go-partage-shell-v27";
 const APP_SHELL = [
   "/GO-Partage/",
   "/GO-Partage/index.html",
@@ -50,4 +50,34 @@ self.addEventListener("fetch", event => {
       }))
     );
   }
+});
+
+self.addEventListener("push", event => {
+  let payload = {};
+  try { payload = event.data ? event.data.json() : {}; } catch {}
+  const title = payload.title || "GO Partage";
+  const options = {
+    body: payload.body || "Tu as une nouvelle notification.",
+    icon: "/GO-Partage/app-icon.svg",
+    badge: "/GO-Partage/app-icon.svg",
+    tag: payload.tag || "go-partage-notification",
+    renotify: true,
+    data: { url: payload.url || "/GO-Partage/" }
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", event => {
+  event.notification.close();
+  const target = new URL(event.notification.data?.url || "/GO-Partage/", self.location.origin);
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const client of windows) {
+      if ("navigate" in client) {
+        await client.navigate(target.href);
+        return client.focus();
+      }
+    }
+    return self.clients.openWindow(target.href);
+  })());
 });
